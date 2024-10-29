@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" class="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Download Light NV</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            /* Dark mode */
+            .dark body {
+                background-color: #1a202c;
+                color: #cbd5e0;
+            }
+
+            /* Animation definitions */
+            @keyframes fadeIn {
+                from {
+                    visibility: hidden;
+                    opacity: 0;
+                }
+                to {
+                    visibility: visible;
+                    opacity: 1;
+                }
+            }
+            @keyframes fadeOut {
+                from {
+                    visibility: visible;
+                    opacity: 1;
+                }
+                to {
+                    visibility: hidden;
+                    opacity: 0;
+                }
+            }
+            .fade-in {
+                animation: fadeIn 0.1s ease-in-out forwards;
+            }
+            .fade-out {
+                animation: fadeOut 0.1s ease-in-out forwards;
+            }
+
+            /* Smooth transition for table container */
+            .transition-max-height {
+                transition: max-height 0.3s ease;
+                overflow: hidden; /* Ensures content stays within the boundaries */
+            }
+        </style>
+    </head>
+    <body
+        class="bg-gray-100 dark:bg-gray-900 flex items-center justify-center min-h-screen transition-colors duration-500"
+    >
+        <div
+            class="w-full max-w-2xl bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 transition-colors duration-500"
+        >
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-200">
+                    MEGA Light Novel Links
+                </h1>
+                <button
+                    id="themeToggle"
+                    aria-label="Toggle dark mode"
+                    class="text-gray-500 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors duration-200"
+                >
+                    Toggle Dark Mode
+                </button>
+            </div>
+            <input
+                type="text"
+                id="searchBox"
+                placeholder="Search by title..."
+                class="mb-4 w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 transition-colors duration-200"
+            />
+
+            <div class="overflow-auto transition-max-height max-h-80">
+                <!-- Changed max-h from 96 to 80 -->
+                <table
+                    id="linksTable"
+                    class="w-full text-left border border-gray-200 dark:border-gray-600 transition-colors duration-500"
+                >
+                    <thead
+                        class="bg-blue-500 text-white dark:bg-blue-700 sticky top-0 transition-colors duration-500"
+                    >
+                        <tr>
+                            <th class="px-4 py-2">Title</th>
+                            <th class="px-4 py-2">Link</th>
+                        </tr>
+                    </thead>
+                    <tbody
+                        class="divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-500"
+                    >
+                        <!-- Dynamic rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Import the fuzzysort library and the main JavaScript file -->
+        <script src="https://cdn.jsdelivr.net/npm/fuzzysort@1.1.4/fuzzysort.min.js"></script>
+        <script type="module" src="script.js"></script>
+    </body>
+</html>
