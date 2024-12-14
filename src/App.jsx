@@ -136,7 +136,7 @@ const LinkTable = () => {
           <div className="flex flex-row items-center justify-between pb-6">
             <div className="flex items-center">
               <img
-                src="src/assets/ff.png"
+                src="/src/assets/ff.png"
                 alt="Logo of Cat Girl Looking at light Novels"
                 className="mb-0 h-auto max-h-[5em] object-contain"
               />
