@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import fuzzysort from "fuzzysort";
-import logo from './assets/ff.png';
+import logo from './assets/ff.avif';
 
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const MAX_TITLE_LENGTH = 60;
