@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import fuzzysort from "fuzzysort";
+import logo from './assets/ff.png';
 
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const MAX_TITLE_LENGTH = 60;
@@ -136,7 +137,7 @@ const LinkTable = () => {
           <div className="flex flex-row items-center justify-between pb-6">
             <div className="flex items-center">
               <img
-                src="/src/assets/ff.png"
+                src={logo}
                 alt="Logo of Cat Girl Looking at light Novels"
                 className="mb-0 h-auto max-h-[5em] object-contain"
               />
