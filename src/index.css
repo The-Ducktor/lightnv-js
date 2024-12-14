@@ -1,0 +1,46 @@
+/* src/index.css */
+
+/* Import Tailwind's base, components, and utilities */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark mode styling */
+.dark body {
+    background-color: #1a202c;
+    color: #cbd5e0;
+}
+
+/* Animation definitions */
+@keyframes fadeIn {
+    from {
+        visibility: hidden;
+        opacity: 0;
+    }
+    to {
+        visibility: visible;
+        opacity: 1;
+    }
+}
+@keyframes fadeOut {
+    from {
+        visibility: visible;
+        opacity: 1;
+    }
+    to {
+        visibility: hidden;
+        opacity: 0;
+    }
+}
+.fade-in {
+    animation: fadeIn 0.1s ease-in-out forwards;
+}
+.fade-out {
+    animation: fadeOut 0.1s ease-in-out forwards;
+}
+
+/* Smooth transition for table container */
+.transition-max-height {
+    transition: max-height 0.3s ease;
+    overflow: hidden; /* Keeps content within boundaries */
+}
