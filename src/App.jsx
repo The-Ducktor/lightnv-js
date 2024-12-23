@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
 import fuzzysort from "fuzzysort";
-import logo from './assets/ff.avif';
+import { Moon, RefreshCw, Sun } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import logoimg from "./assets/ff.avif";
+import FullScreenPopup from './FullScreenPopup';
 
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_DURATION = 60 * 60 * 1000;
 const MAX_TITLE_LENGTH = 60;
 const RESULTS_PER_PAGE = 5;
 
@@ -13,7 +15,10 @@ const LinkTable = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false); // State for full-screen popup
+  const [selectedUrl, setSelectedUrl] = useState(""); // Store selected URL
 
+  // Helper functions and fetch logic remain unchanged
   const cleanGoogleLink = (link) => {
     return link.replace("https://www.google.com/url?q=", "").split("&")[0];
   };
@@ -30,8 +35,7 @@ const LinkTable = () => {
 
     const cachedData = localStorage.getItem("linkData");
     const cacheTime = localStorage.getItem("linkDataCacheTime");
-    const isCacheValid =
-      cachedData &&
+    const isCacheValid = cachedData &&
       cacheTime &&
       !forceFetch &&
       Date.now() - parseInt(cacheTime) < CACHE_DURATION;
@@ -67,7 +71,6 @@ const LinkTable = () => {
         })
         .filter(Boolean);
 
-      // Prepare the data for fuzzysort
       const preparedLinks = processedLinks.map((link) => ({
         ...link,
         prepared: fuzzysort.prepare(link.title),
@@ -94,14 +97,12 @@ const LinkTable = () => {
       return;
     }
 
-    // Use fuzzysort to search through the prepared titles
     const results = fuzzysort.go(query, links, {
       key: "title",
       limit: RESULTS_PER_PAGE,
-      threshold: -100000, // Adjust this value to control strictness
+      threshold: -100000,
     });
 
-    // Convert results back to our expected format
     const filtered = results.map((result) => ({
       title: result.obj.title,
       link: result.obj.link,
@@ -113,109 +114,130 @@ const LinkTable = () => {
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const newMode = !prev;
-      localStorage.setItem("darkMode", newMode.toString());
+      localStorage.setItem("darkMode", isDarkMode);
+      document.documentElement.setAttribute("data-theme", newMode ? "dark" : "cupcake");
       return newMode;
     });
   };
 
   useEffect(() => {
-    setIsDarkMode(localStorage.getItem("darkMode") === "true");
+    const savedDarkMode = localStorage.getItem("darkMode") === "true";
+    setIsDarkMode(savedDarkMode);
+    document.documentElement.setAttribute("data-theme", savedDarkMode ? "night" : "fantasy");
     fetchLinks();
   }, []);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode);
-  }, [isDarkMode]);
+  const displayLinks = filteredLinks.length > 0
+    ? filteredLinks
+    : links.slice(0, RESULTS_PER_PAGE);
 
-  const displayLinks =
-    filteredLinks.length > 0 ? filteredLinks : links.slice(0, RESULTS_PER_PAGE);
+  const handleGetButtonClick = (link) => {
+    setSelectedUrl(link); // Set the URL to display in the popup
+    setIsPopupOpen(true);  // Open the full-screen popup
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 transition-colors duration-300 flex items-center justify-center">
-      <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-        <div className="p-6">
-          <div className="flex flex-row items-center justify-between pb-6">
-            <div className="flex items-center">
-              <img
-                src={logo}
-                alt="Logo of Cat Girl Looking at light Novels"
-                className="mb-0 h-auto max-h-[5em] object-contain"
-              />
+    <div className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300">
+      <div className="container mx-auto px-4 py-8">
+        <div className="card w-full bg-base-100 shadow-xl">
+          <div className="card-body">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="avatar">
+                  <div className="w-16 h-16 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100">
+                    <div className="bg-primary/10 w-full h-full flex items-center justify-center">
+                      <img 
+                        src={logoimg} // Assuming logoimg is the URL of the image
+                        alt="Logo" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-primary">Light Novel Download</h1>
+                  <p className="text-base-content/60">Discover your next read</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => fetchLinks(true)}
+                  disabled={isLoading}
+                  className="btn btn-primary gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                  {isLoading ? "Loading" : "Refresh"}
+                </button>
+                <button
+                  onClick={toggleDarkMode}
+                  className="btn btn-ghost btn-circle btn-lg"
+                >
+                  {isDarkMode 
+                    ? <Sun className="w-6 h-6 text-warning" />
+                    : <Moon className="w-6 h-6 text-primary" />
+                  }
+                </button>
+              </div>
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white ml-4 p-2 pr-5">
-              MEGA Light Novel Links
-            </h1>
-            <div className="flex gap-4">
-              <button
-                onClick={() => fetchLinks(true)}
-                disabled={isLoading}
-                className="px-6 py-3 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 border border-transparent rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-              >
-                {isLoading ? "Loading..." : "Refresh"}
-              </button>
-              <button
-                onClick={toggleDarkMode}
-                className="px-6 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                {isDarkMode ? "Light Mode" : "Dark Mode"}
-              </button>
-            </div>
-          </div>
 
-          <div className="mb-6">
-            <input
-              type="search"
-              placeholder="Search novels..."
-              value={searchQuery}
-              onChange={handleSearch}
-              className="w-full px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-            />
-          </div>
+            <div className="divider"></div>
 
-          {error ? (
-            <div className="text-red-500 dark:text-red-400 p-4 text-center">
-              Error: {error}
+            <div className="form-control">
+              <div className="input-group">
+
+                <input
+                  type="search"
+                  placeholder="Search novels..."
+                  value={searchQuery}
+                  onChange={handleSearch}
+                  className="input input-bordered w-full"
+                />
+              </div>
             </div>
-          ) : (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Title
-                    </th>
-                    <th className="w-24 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Link
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {displayLinks.map(({ link, title }, index) => (
-                    <tr
-                      key={index}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {truncateTitle(title)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
-                          Visit →
-                        </a>
-                      </td>
+
+            {error ? (
+              <div className="alert alert-error shadow-lg mt-6">
+                <span className="font-medium">Error: {error}</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto mt-6">
+                <table className="table table-zebra w-full">
+                  <thead>
+                    <tr>
+                      <th className="bg-base-200 text-base-content/70 font-medium">Title</th>
+                      <th className="bg-base-200 text-base-content/70 font-medium text-right">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {displayLinks.map(({ link, title }, index) => (
+                      <tr key={index}>
+                        <td className="font-medium">{truncateTitle(title)}</td>
+                        <td className="text-right">
+                          <button
+                            onClick={() => handleGetButtonClick(link)} // Open popup with URL
+                            className="btn btn-primary btn-sm gap-1"
+                          >
+                            Get →
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Full-Screen Popup */}
+      {isPopupOpen && (
+        <FullScreenPopup 
+          selectedUrl={selectedUrl} 
+          onClose={() => setIsPopupOpen(false)} 
+        />
+      )}
     </div>
   );
 };
