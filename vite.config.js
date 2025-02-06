@@ -1,11 +1,11 @@
-import react from "@vitejs/plugin-react";
+import solid from "vite-plugin-solid";
 import { defineConfig } from "vite";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-plugins: [
-react(),
-],
+  plugins: [
+    solid(),
+  ],
   server: {
     port: 3000, // Default port for development
     strictPort: true, // Ensure the port is fixed and doesn't change

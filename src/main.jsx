@@ -1,10 +1,5 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import  LinkTable from "./App";
+import { render } from "solid-js/web";
+import LinkTable from "./App";
 import "./index.css";
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <LinkTable />
-  </React.StrictMode>,
-);
+render(() => <LinkTable />, document.getElementById("root"));

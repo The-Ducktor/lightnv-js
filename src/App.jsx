@@ -1,6 +1,6 @@
 import fuzzysort from "fuzzysort";
 import { Moon, RefreshCw, Sun } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { createSignal, createEffect, onCleanup } from "solid-js";
 import logoimg from "./assets/ff.avif";
 import FullScreenPopup from './FullScreenPopup';
 
@@ -9,14 +9,14 @@ const MAX_TITLE_LENGTH = 60;
 const RESULTS_PER_PAGE = 5;
 
 const LinkTable = () => {
-  const [links, setLinks] = useState([]);
-  const [filteredLinks, setFilteredLinks] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false); // State for full-screen popup
-  const [selectedUrl, setSelectedUrl] = useState(""); // Store selected URL
+  const [links, setLinks] = createSignal([]);
+  const [filteredLinks, setFilteredLinks] = createSignal([]);
+  const [searchQuery, setSearchQuery] = createSignal("");
+  const [isDarkMode, setIsDarkMode] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(true);
+  const [error, setError] = createSignal(null);
+  const [isPopupOpen, setIsPopupOpen] = createSignal(false); // State for full-screen popup
+  const [selectedUrl, setSelectedUrl] = createSignal(""); // Store selected URL
 
   // Helper functions and fetch logic remain unchanged
   const cleanGoogleLink = (link) => {
@@ -97,7 +97,7 @@ const LinkTable = () => {
       return;
     }
 
-    const results = fuzzysort.go(query, links, {
+    const results = fuzzysort.go(query, links(), {
       key: "title",
       limit: RESULTS_PER_PAGE,
       threshold: -100000,
@@ -114,22 +114,22 @@ const LinkTable = () => {
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const newMode = !prev;
-      localStorage.setItem("darkMode", isDarkMode);
+      localStorage.setItem("darkMode", isDarkMode());
       document.documentElement.setAttribute("data-theme", newMode ? "dark" : "cupcake");
       return newMode;
     });
   };
 
-  useEffect(() => {
+  createEffect(() => {
     const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setIsDarkMode(savedDarkMode);
     document.documentElement.setAttribute("data-theme", savedDarkMode ? "night" : "fantasy");
     fetchLinks();
-  }, []);
+  });
 
-  const displayLinks = filteredLinks.length > 0
-    ? filteredLinks
-    : links.slice(0, RESULTS_PER_PAGE);
+  const displayLinks = filteredLinks().length > 0
+    ? filteredLinks()
+    : links().slice(0, RESULTS_PER_PAGE);
 
   const handleGetButtonClick = (link) => {
     setSelectedUrl(link); // Set the URL to display in the popup
@@ -163,17 +163,17 @@ const LinkTable = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => fetchLinks(true)}
-                  disabled={isLoading}
+                  disabled={isLoading()}
                   className="btn btn-primary gap-2"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-                  {isLoading ? "Loading" : "Refresh"}
+                  <RefreshCw className={`w-4 h-4 ${isLoading() ? "animate-spin" : ""}`} />
+                  {isLoading() ? "Loading" : "Refresh"}
                 </button>
                 <button
                   onClick={toggleDarkMode}
                   className="btn btn-ghost btn-circle btn-lg"
                 >
-                  {isDarkMode 
+                  {isDarkMode() 
                     ? <Sun className="w-6 h-6 text-warning" />
                     : <Moon className="w-6 h-6 text-primary" />
                   }
@@ -189,16 +189,16 @@ const LinkTable = () => {
                 <input
                   type="search"
                   placeholder="Search novels..."
-                  value={searchQuery}
-                  onChange={handleSearch}
+                  value={searchQuery()}
+                  onInput={handleSearch}
                   className="input input-bordered w-full"
                 />
               </div>
             </div>
 
-            {error ? (
+            {error() ? (
               <div className="alert alert-error shadow-lg mt-6">
-                <span className="font-medium">Error: {error}</span>
+                <span className="font-medium">Error: {error()}</span>
               </div>
             ) : (
               <div className="overflow-x-auto mt-6">
@@ -232,9 +232,9 @@ const LinkTable = () => {
       </div>
 
       {/* Full-Screen Popup */}
-      {isPopupOpen && (
+      {isPopupOpen() && (
         <FullScreenPopup 
-          selectedUrl={selectedUrl} 
+          selectedUrl={selectedUrl()} 
           onClose={() => setIsPopupOpen(false)} 
         />
       )}
