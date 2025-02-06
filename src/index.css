@@ -1,0 +1,60 @@
+/* src/index.css */
+
+/* Import Tailwind's base, components, and utilities */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark mode styling */
+.dark body {
+    background-color: #1a202c;
+    color: #cbd5e0;
+}
+
+/* Animation definitions */
+@keyframes fadeIn {
+    from {
+        visibility: hidden;
+        opacity: 0;
+    }
+    to {
+        visibility: visible;
+        opacity: 1;
+    }
+}
+@keyframes fadeOut {
+    from {
+        visibility: visible;
+        opacity: 1;
+    }
+    to {
+        visibility: hidden;
+        opacity: 0;
+    }
+}
+.fade-in {
+    animation: fadeIn 0.1s ease-in-out forwards;
+}
+.fade-out {
+    animation: fadeOut 0.1s ease-in-out forwards;
+}
+
+/* Smooth transition for table container */
+.transition-max-height {
+    transition: max-height 0.3s ease;
+    overflow: hidden; /* Keeps content within boundaries */
+}
+.loader {
+    border: 4px solid #f3f3f3; 
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
