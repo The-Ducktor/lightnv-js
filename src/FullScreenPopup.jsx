@@ -3,12 +3,21 @@ import { File } from "megajs";
 import { orderBy } from "natural-orderby";
 import React, { useEffect, useState } from "react";
 
-const EMOJI_REPLACEMENTS = {
+const EMOJI_REPLACEMENTS = { 
   "J-Novel Club": "📖",
   "Kobo": "📱",
   "Premium": "⭐",
+  "Premium_LNWNCentral": "⭐",
   "Yen Press": "💴",
-  "Kobo_LNWNCentrall" : "📱",
+  "Kobo_LNWNCentral": "📱",
+  "VIZ": "📕",
+  "OCR": "🔍",
+  "Cross Infinite World": "🌐",
+  "Dark Horse": "🐎",
+  "Hanashi Media": "🎙️",
+  "Tentai Books": "❌", // defunct
+  "Seven Seas": "🌊",
+  "__default__": "❓", // Add this line for unknown tags / when i give up
 };
 
 const FullScreenPopup = ({ selectedUrl, onClose }) => {
@@ -277,24 +286,31 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
 
   const formatTitle = (title) => {
     return title.replace(/\[(.*?)\]/g, (match, content) => {
-      return EMOJI_REPLACEMENTS[content] || "";
+      return EMOJI_REPLACEMENTS[content] || EMOJI_REPLACEMENTS.__default__;
     }).trim();
   };
 
   const EmojiLegend = () => {
     // Group entries by emoji
-    const groupedEmojis = Object.entries(EMOJI_REPLACEMENTS).reduce((acc, [text, emoji]) => {
-      if (!acc[emoji]) {
-        acc[emoji] = [];
-      }
-      acc[emoji].push(text);
-      return acc;
-    }, {});
-  
+    const groupedEmojis = Object.entries(EMOJI_REPLACEMENTS).reduce(
+      (acc, [text, emoji]) => {
+        if (!acc[emoji]) {
+          acc[emoji] = [];
+        }
+        acc[emoji].push(text);
+        return acc;
+      },
+      {},
+    );
+
     return (
       <div className="text-xs text-gray-400 mb-2 flex gap-3">
         {Object.entries(groupedEmojis).map(([emoji, texts]) => (
-          <span key={emoji} className="tooltip tooltip-info" data-tip={texts.join(", ")}>
+          <span
+            key={emoji}
+            className="tooltip tooltip-info"
+            data-tip={texts.join(", ")}
+          >
             {emoji}
           </span>
         ))}

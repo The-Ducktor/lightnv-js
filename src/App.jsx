@@ -36,8 +36,10 @@ const LinkTable = () => {
       fields: ["title"],
       storeFields: ["title", "link"],
       searchOptions: {
-        fuzzy: 0.2,
+        fuzzy: 0.4, // Increased from 0.2
         prefix: true,
+        boost: { title: 2 },
+        combineWith: "OR", // Added to match any term instead of all terms
       },
     });
 
@@ -78,7 +80,9 @@ const LinkTable = () => {
 
     const results = searchEngine.search(query, {
       boost: { title: 2 },
-      fuzzy: 0.2,
+      fuzzy: 0.4, // Increased from 0.2
+      prefix: true,
+      combineWith: "OR", // Added to match any term instead of all terms
     });
 
     setFilteredLinks(results.slice(0, RESULTS_PER_PAGE));
