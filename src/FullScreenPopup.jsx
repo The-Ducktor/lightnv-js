@@ -267,6 +267,17 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const formatTitle = (title) => {
+    return title.replace(/\[(.*?)\]/g, (match, content) => {
+      const replacements = {
+        "J-Novel Club": "📖",
+        "Kobo": "📱",
+        "Premium": "⭐",
+      };
+      return replacements[content] || "";
+    }).trim();
+  };
+
   return (
     <div className="fixed top-0 left-0 w-full h-full bg-base-300/80 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-base-200 p-8 rounded-lg w-full max-w-2xl relative shadow-xl border border-base-300">
@@ -353,7 +364,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
                         className="text-sm font-medium cursor-pointer flex items-center justify-between"
                       >
                         <span className="truncate mr-4 flex items-center gap-2">
-                          {child.name}
+                          {formatTitle(child.name)}
                           {downloadedFiles.has(child.name) && (
                             <span className="text-success text-xs">
                               ✓ Downloaded
