@@ -12,6 +12,11 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [progress, setProgress] = useState({});
   const [totalProgress, setTotalProgress] = useState(0);
   const [seriesName, setSeriesName] = useState("novel");
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [speedHistory, setSpeedHistory] = useState([]);
+  const [displaySpeed, setDisplaySpeed] = useState(0);
+  const [downloadedFiles, setDownloadedFiles] = useState(new Set());
+  const SPEED_SAMPLE_SIZE = 5; // Number of samples to average
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
 
@@ -28,6 +33,21 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   useEffect(() => {
     fetchFiles();
   }, [selectedUrl]);
+
+  useEffect(() => {
+    let animationFrameId;
+    const smoothSpeed = () => {
+      setDisplaySpeed((prev) => {
+        const diff = downloadSpeed - prev;
+        if (Math.abs(diff) < 1) return downloadSpeed;
+        return prev + diff * 0.02; // Adjust 0.1 to control smoothing speed
+      });
+      animationFrameId = requestAnimationFrame(smoothSpeed);
+    };
+
+    animationFrameId = requestAnimationFrame(smoothSpeed);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [downloadSpeed]);
 
   const fetchFiles = async () => {
     try {
@@ -76,22 +96,53 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     }
   };
 
+  const formatSpeed = (bytesPerSecond) => {
+    if (bytesPerSecond === 0) return "0 B/s";
+    const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+    const unitIndex = Math.floor(Math.log(bytesPerSecond) / Math.log(1024));
+    const value = bytesPerSecond / Math.pow(1024, unitIndex);
+    return `${value.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  const getAverageSpeed = (newSpeed) => {
+    const newHistory = [...speedHistory, newSpeed].slice(-SPEED_SAMPLE_SIZE);
+    setSpeedHistory(newHistory);
+    return newHistory.reduce((a, b) => a + b, 0) / newHistory.length;
+  };
+
   const downloadFile = async (file, zip, newProgress) => {
     const fileName = file.name;
     const fileSize = file.size;
     newProgress[fileName] = 0;
     setProgress({ ...newProgress });
 
+    let lastBytes = 0;
+    let lastTime = Date.now();
+
     const downloadStream = await file.download();
     const chunks = [];
 
     downloadStream.on("progress", ({ bytesLoaded }) => {
+      const now = Date.now();
+      const timeDiff = (now - lastTime) / 1000; // Convert to seconds
+      const bytesDiff = bytesLoaded - lastBytes;
+
+      if (timeDiff > 0.1) { // Only update speed every 100ms
+        const currentSpeed = bytesDiff / timeDiff;
+        const avgSpeed = getAverageSpeed(currentSpeed);
+        setDownloadSpeed(avgSpeed);
+
+        lastBytes = bytesLoaded;
+        lastTime = now;
+      }
+
       newProgress[fileName] = (bytesLoaded / fileSize) * 100;
       setProgress({ ...newProgress });
 
-      const cumulativeProgress = Object.values(newProgress).reduce((acc, p) =>
-        acc + p, 0) /
-        selectedFiles.length;
+      const cumulativeProgress = Object.values(newProgress).reduce(
+        (acc, p) => acc + p,
+        0,
+      ) / selectedFiles.length;
       setTotalProgress(cumulativeProgress);
     });
 
@@ -120,8 +171,37 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     return hash;
   };
 
+  const loadDownloadHistory = () => {
+    try {
+      const history = JSON.parse(
+        localStorage.getItem("downloadHistory") || "{}",
+      );
+      return new Set(history[selectedUrl] || []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const saveDownloadHistory = (files) => {
+    try {
+      const history = JSON.parse(
+        localStorage.getItem("downloadHistory") || "{}",
+      );
+      history[selectedUrl] = Array.from(files);
+      localStorage.setItem("downloadHistory", JSON.stringify(history));
+    } catch (err) {
+      console.error("Failed to save download history:", err);
+    }
+  };
+
+  useEffect(() => {
+    setDownloadedFiles(loadDownloadHistory());
+  }, [selectedUrl]);
+
   const handleDownloadClick = async () => {
     setIsDownloading(true);
+    setDownloadSpeed(0);
+    setSpeedHistory([]);
     const zip = new JSZip();
     const newProgress = {};
     let downloadQueue = [...selectedFiles];
@@ -149,6 +229,14 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       await downloadNextBatch();
 
       const content = await zip.generateAsync({ type: "blob" });
+
+      const newDownloaded = new Set([
+        ...downloadedFiles,
+        ...selectedFiles.map((f) => f.name),
+      ]);
+      setDownloadedFiles(newDownloaded);
+      saveDownloadHistory(newDownloaded);
+
       const a = document.createElement("a");
       const url = URL.createObjectURL(content);
       a.href = url;
@@ -171,129 +259,184 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     fetchFiles();
   };
 
-  if (loading) {
-    return (
-      <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-70 flex items-center justify-center z-50">
-        <div className="bg-neutral p-8 rounded-lg w-full max-w-md">
-          <h2 className="text-xl font-semibold mb-4">
-            Loading files from MEGA...
-          </h2>
-          <p className="text-sm text-gray-500">
-            Please wait while we fetch the files.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-70 flex items-center justify-center z-50">
-        <div className="bg-red-600 text-white p-8 rounded-lg w-full max-w-md">
-          <h2 className="text-xl font-semibold mb-4">Error: {error}</h2>
-          <button onClick={retryFetchFiles} className="btn btn-primary mt-4">
-            Retry
-          </button>
-          <button onClick={onClose} className="btn btn-secondary mt-4">
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
 
   return (
-    <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-70 flex items-center justify-center z-50">
-      <div className="bg-neutral p-8 rounded-lg w-full max-w-md relative">
+    <div className="fixed top-0 left-0 w-full h-full bg-base-300/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-base-200 p-8 rounded-lg w-full max-w-2xl relative shadow-xl border border-base-300">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-300 hover:text-white"
         >
           ✕
         </button>
-        <h2 className="text-xl font-semibold mb-4">{seriesName}</h2>
+        <h2 className="text-2xl font-semibold mb-2">{seriesName}</h2>
         <div className="text-xs text-gray-400 mb-4 break-all">
           <span className="font-semibold">MEGA Link:</span>
           <br />
           {decodeURIComponent(selectedUrl)}
         </div>
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={handleSelectAllChange}
-            className="text-sm text-gray-300 hover:text-white"
-          >
-            {selectedFiles.length === children.length
-              ? "Deselect All"
-              : "Select All"}
-          </button>
+
+        <div className="flex items-center justify-between mb-4 bg-base-300/50 p-4 rounded-lg">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSelectAllChange}
+              className="btn btn-sm btn-outline"
+            >
+              {selectedFiles.length === children.length
+                ? "Deselect All"
+                : "Select All"}
+            </button>
+            <div className="text-sm">
+              <span className="font-semibold">{selectedFiles.length}</span> of
+              {" "}
+              {children.length} files selected
+              {selectedFiles.length > 0 && (
+                <span className="ml-2">
+                  ({formatFileSize(
+                    selectedFiles.reduce((acc, file) => acc + file.size, 0),
+                  )})
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="max-h-64 overflow-y-auto mb-4">
+
+        <div className="max-h-[calc(100vh-400px)] overflow-y-auto mb-4 bg-base-300/50 rounded-lg">
           {children.length > 0
             ? (
-              orderBy(children, (e) => e.name).map((child, index) => (
-                <div
-                  key={index}
-                  className={`relative flex items-center mb-2 rounded-lg ${
-                    selectedFiles.includes(child)
-                      ? "bg-base-100"
-                      : "bg-transparent"
-                  }`}
-                  style={{
-                    height: "3rem",
-                    transition: "background 0.3s ease",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    id={`file-${index}`}
-                    className="absolute left-2 w-5 h-5 z-10"
-                    onChange={() => handleCheckboxChange(child)}
-                    checked={selectedFiles.includes(child)}
-                  />
-                  <label
-                    htmlFor={`file-${index}`}
-                    className="text-sm text-gray-300 pl-12 w-full z-10"
+              <div className="divide-y divide-base-content/10">
+                {orderBy(children, (e) => e.name).map((child, index) => (
+                  <div
+                    key={index}
+                    className={`relative flex items-center p-3 group ${
+                      selectedFiles.includes(child)
+                        ? "bg-base-100"
+                        : downloadedFiles.has(child.name)
+                        ? "bg-success/5 hover:bg-base-100/50"
+                        : "hover:bg-base-100/50"
+                    }`}
+                    style={{ transition: "background 0.3s ease" }}
                   >
-                    {child.name}
-                  </label>
-                  {progress[child.name] !== undefined && (
                     <div
-                      className="absolute top-0 left-0 w-full h-full bg-gray-700 rounded-md"
+                      className="absolute inset-0"
                       style={{
+                        width: progress[child.name]
+                          ? `${progress[child.name]}%`
+                          : "0%",
+                        backgroundColor: "rgba(59, 130, 246, 0.2)",
                         transition: "width 0.3s ease",
-                        width: `${progress[child.name]}%`,
-                        backgroundColor: "#191E24", // Darker blue from DaisyUI theme
                       }}
-                    >
+                    />
+
+                    <input
+                      type="checkbox"
+                      id={`file-${index}`}
+                      className={`checkbox checkbox-sm mr-4 ${
+                        downloadedFiles.has(child.name)
+                          ? "checkbox-success"
+                          : ""
+                      }`}
+                      onChange={() => handleCheckboxChange(child)}
+                      checked={selectedFiles.includes(child)}
+                    />
+
+                    <div className="flex-1 z-10">
+                      <label
+                        htmlFor={`file-${index}`}
+                        className="text-sm font-medium cursor-pointer flex items-center justify-between"
+                      >
+                        <span className="truncate mr-4 flex items-center gap-2">
+                          {child.name}
+                          {downloadedFiles.has(child.name) && (
+                            <span className="text-success text-xs">
+                              ✓ Downloaded
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">
+                          {formatFileSize(child.size)}
+                        </span>
+                      </label>
+                      {progress[child.name] !== undefined && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          {progress[child.name].toFixed(1)}% downloaded
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))
+                  </div>
+                ))}
+              </div>
             )
             : (
-              <p className="text-gray-500">
-                No .epub files found in this folder.
-              </p>
+              <div className="p-8 text-center text-gray-500">
+                <div className="text-4xl mb-2">📚</div>
+                No .epub files found in this folder
+              </div>
             )}
         </div>
+
         {isDownloading && (
-          <div className="w-full h-2 bg-gray-500 rounded mt-4">
-            <div
-              className="bg-green-600 h-2 rounded"
-              style={{
-                width: `${totalProgress}%`,
-                transition: "width 0.3s ease",
-              }}
-            >
+          <div className="space-y-2 mb-4">
+            <div className="w-full bg-base-300/50 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-primary h-full rounded-full transition-all duration-300 relative"
+                style={{ width: `${totalProgress}%` }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-primary-content font-medium">
+                  {totalProgress.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between text-xs text-base-content/70">
+              <span>{formatSpeed(displaySpeed)}</span>
+              <span>
+                {formatFileSize(
+                  selectedFiles.reduce((acc, file) => acc + file.size, 0),
+                )}
+              </span>
             </div>
           </div>
         )}
+
         <button
           onClick={handleDownloadClick}
-          className="btn btn-primary w-full mt-4"
+          className="btn btn-primary w-full gap-2 shadow-lg"
           disabled={selectedFiles.length === 0 || isDownloading}
         >
-          {isDownloading ? "Downloading..." : "Download Selected"}
+          {isDownloading
+            ? (
+              <>
+                <span className="loading loading-spinner loading-sm"></span>
+                Downloading {selectedFiles.length} files...
+                <span className="text-xs opacity-75">
+                  ({formatSpeed(displaySpeed)})
+                </span>
+              </>
+            )
+            : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Download {selectedFiles.length} Selected Files
+              </>
+            )}
         </button>
       </div>
     </div>
