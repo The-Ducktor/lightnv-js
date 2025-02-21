@@ -3,6 +3,12 @@ import { File } from "megajs";
 import { orderBy } from "natural-orderby";
 import React, { useEffect, useState } from "react";
 
+const EMOJI_REPLACEMENTS = {
+  "J-Novel Club": "📖",
+  "Kobo": "📱",
+  "Premium": "⭐",
+};
+
 const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [children, setChildren] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -269,14 +275,19 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
 
   const formatTitle = (title) => {
     return title.replace(/\[(.*?)\]/g, (match, content) => {
-      const replacements = {
-        "J-Novel Club": "📖",
-        "Kobo": "📱",
-        "Premium": "⭐",
-      };
-      return replacements[content] || "";
+      return EMOJI_REPLACEMENTS[content] || "";
     }).trim();
   };
+
+  const EmojiLegend = () => (
+    <div className="text-xs text-gray-400 mb-2 flex gap-3">
+      {Object.entries(EMOJI_REPLACEMENTS).map(([text, emoji]) => (
+        <span key={text} className="tooltip tooltip-info" data-tip={text}>
+          {emoji}
+        </span>
+      ))}
+    </div>
+  );
 
   return (
     <div className="fixed top-0 left-0 w-full h-full bg-base-300/80 backdrop-blur-sm flex items-center justify-center z-50">
@@ -288,6 +299,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
           ✕
         </button>
         <h2 className="text-2xl font-semibold mb-2">{seriesName}</h2>
+        <EmojiLegend />
         <div className="text-xs text-gray-400 mb-4 break-all">
           <span className="font-semibold">MEGA Link:</span>
           <br />
