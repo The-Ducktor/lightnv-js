@@ -7,6 +7,8 @@ const EMOJI_REPLACEMENTS = {
   "J-Novel Club": "📖",
   "Kobo": "📱",
   "Premium": "⭐",
+  "Yen Press": "💴",
+  "Kobo_LNWNCentrall" : "📱",
 };
 
 const FullScreenPopup = ({ selectedUrl, onClose }) => {
@@ -279,16 +281,26 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     }).trim();
   };
 
-  const EmojiLegend = () => (
-    <div className="text-xs text-gray-400 mb-2 flex gap-3">
-      {Object.entries(EMOJI_REPLACEMENTS).map(([text, emoji]) => (
-        <span key={text} className="tooltip tooltip-info" data-tip={text}>
-          {emoji}
-        </span>
-      ))}
-    </div>
-  );
-
+  const EmojiLegend = () => {
+    // Group entries by emoji
+    const groupedEmojis = Object.entries(EMOJI_REPLACEMENTS).reduce((acc, [text, emoji]) => {
+      if (!acc[emoji]) {
+        acc[emoji] = [];
+      }
+      acc[emoji].push(text);
+      return acc;
+    }, {});
+  
+    return (
+      <div className="text-xs text-gray-400 mb-2 flex gap-3">
+        {Object.entries(groupedEmojis).map(([emoji, texts]) => (
+          <span key={emoji} className="tooltip tooltip-info" data-tip={texts.join(", ")}>
+            {emoji}
+          </span>
+        ))}
+      </div>
+    );
+  };
   return (
     <div className="fixed top-0 left-0 w-full h-full bg-base-300/80 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-base-200 p-8 rounded-lg w-full max-w-2xl relative shadow-xl border border-base-300">
