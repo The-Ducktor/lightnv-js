@@ -3,7 +3,7 @@ import { File } from "megajs";
 import { orderBy } from "natural-orderby";
 import React, { useEffect, useState } from "react";
 
-const EMOJI_REPLACEMENTS = { 
+const EMOJI_REPLACEMENTS = {
   "J-Novel Club": "📖",
   "Kobo": "📱",
   "Premium": "⭐",
@@ -291,7 +291,6 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   };
 
   const EmojiLegend = () => {
-    // Group entries by emoji
     const groupedEmojis = Object.entries(EMOJI_REPLACEMENTS).reduce(
       (acc, [text, emoji]) => {
         if (!acc[emoji]) {
@@ -304,11 +303,11 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     );
 
     return (
-      <div className="text-xs text-gray-400 mb-2 flex gap-3">
+      <div className="text-xs text-gray-400 mb-2 flex gap-3 opacity-50 hover:opacity-100 transition-opacity filter grayscale hover:grayscale-0">
         {Object.entries(groupedEmojis).map(([emoji, texts]) => (
           <span
             key={emoji}
-            className="tooltip tooltip-info"
+            className="tooltip tooltip-info cursor-help"
             data-tip={texts.join(", ")}
           >
             {emoji}
@@ -317,6 +316,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       </div>
     );
   };
+
   return (
     <div className="fixed top-0 left-0 w-full h-full bg-base-300/80 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-base-200 p-8 rounded-lg w-full max-w-2xl relative shadow-xl border border-base-300">
