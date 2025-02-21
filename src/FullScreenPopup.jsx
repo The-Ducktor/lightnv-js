@@ -13,8 +13,8 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [totalProgress, setTotalProgress] = useState(0);
   const [seriesName, setSeriesName] = useState("novel");
   const [downloadSpeed, setDownloadSpeed] = useState(0);
-  const [lastBytesLoaded, setLastBytesLoaded] = useState({});
-  const [lastUpdateTime, setLastUpdateTime] = useState({});
+  const [speedHistory, setSpeedHistory] = useState([]);
+  const SPEED_SAMPLE_SIZE = 5; // Number of samples to average
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
 
@@ -80,11 +80,17 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   };
 
   const formatSpeed = (bytesPerSecond) => {
-    if (bytesPerSecond === 0) return '0 B/s';
-    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    if (bytesPerSecond === 0) return "0 B/s";
+    const units = ["B/s", "KB/s", "MB/s", "GB/s"];
     const unitIndex = Math.floor(Math.log(bytesPerSecond) / Math.log(1024));
     const value = bytesPerSecond / Math.pow(1024, unitIndex);
     return `${value.toFixed(1)} ${units[unitIndex]}`;
+  };
+
+  const getAverageSpeed = (newSpeed) => {
+    const newHistory = [...speedHistory, newSpeed].slice(-SPEED_SAMPLE_SIZE);
+    setSpeedHistory(newHistory);
+    return newHistory.reduce((a, b) => a + b, 0) / newHistory.length;
   };
 
   const downloadFile = async (file, zip, newProgress) => {
@@ -92,23 +98,25 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     const fileSize = file.size;
     newProgress[fileName] = 0;
     setProgress({ ...newProgress });
-    setLastBytesLoaded({ ...lastBytesLoaded, [fileName]: 0 });
-    setLastUpdateTime({ ...lastUpdateTime, [fileName]: Date.now() });
+
+    let lastBytes = 0;
+    let lastTime = Date.now();
 
     const downloadStream = await file.download();
     const chunks = [];
 
     downloadStream.on("progress", ({ bytesLoaded }) => {
       const now = Date.now();
-      const timeDiff = (now - lastUpdateTime[fileName]) / 1000; // Convert to seconds
-      const bytesDiff = bytesLoaded - lastBytesLoaded[fileName];
-      const speed = bytesDiff / timeDiff;
+      const timeDiff = (now - lastTime) / 1000; // Convert to seconds
+      const bytesDiff = bytesLoaded - lastBytes;
 
-      // Update speed if time difference is significant
-      if (timeDiff > 0.5) {
-        setDownloadSpeed(speed);
-        setLastBytesLoaded({ ...lastBytesLoaded, [fileName]: bytesLoaded });
-        setLastUpdateTime({ ...lastUpdateTime, [fileName]: now });
+      if (timeDiff > 0.1) { // Only update speed every 100ms
+        const currentSpeed = bytesDiff / timeDiff;
+        const avgSpeed = getAverageSpeed(currentSpeed);
+        setDownloadSpeed(avgSpeed);
+
+        lastBytes = bytesLoaded;
+        lastTime = now;
       }
 
       newProgress[fileName] = (bytesLoaded / fileSize) * 100;
@@ -116,7 +124,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
 
       const cumulativeProgress = Object.values(newProgress).reduce(
         (acc, p) => acc + p,
-        0
+        0,
       ) / selectedFiles.length;
       setTotalProgress(cumulativeProgress);
     });
@@ -148,6 +156,8 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
 
   const handleDownloadClick = async () => {
     setIsDownloading(true);
+    setDownloadSpeed(0);
+    setSpeedHistory([]);
     const zip = new JSZip();
     const newProgress = {};
     let downloadQueue = [...selectedFiles];
@@ -321,7 +331,11 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
             </div>
             <div className="flex justify-between text-xs text-base-content/70">
               <span>{formatSpeed(downloadSpeed)}</span>
-              <span>{formatFileSize(selectedFiles.reduce((acc, file) => acc + file.size, 0))}</span>
+              <span>
+                {formatFileSize(
+                  selectedFiles.reduce((acc, file) => acc + file.size, 0),
+                )}
+              </span>
             </div>
           </div>
         )}
@@ -336,7 +350,9 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
               <>
                 <span className="loading loading-spinner loading-sm"></span>
                 Downloading {selectedFiles.length} files...
-                <span className="text-xs opacity-75">({formatSpeed(downloadSpeed)})</span>
+                <span className="text-xs opacity-75">
+                  ({formatSpeed(downloadSpeed)})
+                </span>
               </>
             )
             : (
