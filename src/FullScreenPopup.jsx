@@ -11,6 +11,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState({});
   const [totalProgress, setTotalProgress] = useState(0);
+  const [seriesName, setSeriesName] = useState("novel");
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
 
@@ -39,6 +40,9 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       if (!megaFile.children) {
         throw new Error("Invalid or expired session. Please reload.");
       }
+
+      // Extract series name from the folder name
+      setSeriesName(megaFile.name || "novels");
 
       const filteredFiles = megaFile.children.filter((file) =>
         file.name.endsWith(".epub")
@@ -85,8 +89,8 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       newProgress[fileName] = (bytesLoaded / fileSize) * 100;
       setProgress({ ...newProgress });
 
-      const cumulativeProgress =
-        Object.values(newProgress).reduce((acc, p) => acc + p, 0) /
+      const cumulativeProgress = Object.values(newProgress).reduce((acc, p) =>
+        acc + p, 0) /
         selectedFiles.length;
       setTotalProgress(cumulativeProgress);
     });
@@ -96,7 +100,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     }
 
     const concatenated = new Uint8Array(
-      chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+      chunks.reduce((acc, chunk) => acc + chunk.length, 0),
     );
     let offset = 0;
     for (const chunk of chunks) {
@@ -105,6 +109,15 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     }
 
     zip.file(fileName, concatenated);
+  };
+
+  const generateSimpleHash = () => {
+    const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let hash = "";
+    for (let i = 0; i < 4; i++) {
+      hash += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return hash;
   };
 
   const handleDownloadClick = async () => {
@@ -116,7 +129,11 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     const downloadNextBatch = async () => {
       const activeDownloads = [];
 
-      for (let i = 0; i < CONCURRENT_DOWNLOADS && downloadQueue.length > 0; i++) {
+      for (
+        let i = 0;
+        i < CONCURRENT_DOWNLOADS && downloadQueue.length > 0;
+        i++
+      ) {
         const file = downloadQueue.shift();
         activeDownloads.push(downloadFile(file, zip, newProgress));
       }
@@ -135,7 +152,8 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       const a = document.createElement("a");
       const url = URL.createObjectURL(content);
       a.href = url;
-      a.download = "novels.zip";
+      const hash = generateSimpleHash();
+      a.download = `${seriesName} - ${hash}.zip`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -157,8 +175,12 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     return (
       <div className="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-70 flex items-center justify-center z-50">
         <div className="bg-neutral p-8 rounded-lg w-full max-w-md">
-          <h2 className="text-xl font-semibold mb-4">Loading files from MEGA...</h2>
-          <p className="text-sm text-gray-500">Please wait while we fetch the files.</p>
+          <h2 className="text-xl font-semibold mb-4">
+            Loading files from MEGA...
+          </h2>
+          <p className="text-sm text-gray-500">
+            Please wait while we fetch the files.
+          </p>
         </div>
       </div>
     );
@@ -189,56 +211,70 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
         >
           ✕
         </button>
-        <h2 className="text-xl font-semibold mb-4">Download Options</h2>
+        <h2 className="text-xl font-semibold mb-4">{seriesName}</h2>
+        <div className="text-xs text-gray-400 mb-4 break-all">
+          <span className="font-semibold">MEGA Link:</span>
+          <br />
+          {decodeURIComponent(selectedUrl)}
+        </div>
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={handleSelectAllChange}
             className="text-sm text-gray-300 hover:text-white"
           >
-            {selectedFiles.length === children.length ? "Deselect All" : "Select All"}
+            {selectedFiles.length === children.length
+              ? "Deselect All"
+              : "Select All"}
           </button>
         </div>
         <div className="max-h-64 overflow-y-auto mb-4">
-          {children.length > 0 ? (
-            orderBy(children, (e) => e.name).map((child, index) => (
-              <div
-                key={index}
-                className={`relative flex items-center mb-2 rounded-lg ${
-                  selectedFiles.includes(child) ? "bg-base-100" : "bg-transparent"
-                }`}
-                style={{
-                  height: "3rem",
-                  transition: "background 0.3s ease",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  id={`file-${index}`}
-                  className="absolute left-2 w-5 h-5 z-10"
-                  onChange={() => handleCheckboxChange(child)}
-                  checked={selectedFiles.includes(child)}
-                />
-                <label
-                  htmlFor={`file-${index}`}
-                  className="text-sm text-gray-300 pl-12 w-full z-10"
+          {children.length > 0
+            ? (
+              orderBy(children, (e) => e.name).map((child, index) => (
+                <div
+                  key={index}
+                  className={`relative flex items-center mb-2 rounded-lg ${
+                    selectedFiles.includes(child)
+                      ? "bg-base-100"
+                      : "bg-transparent"
+                  }`}
+                  style={{
+                    height: "3rem",
+                    transition: "background 0.3s ease",
+                  }}
                 >
-                  {child.name}
-                </label>
-                {progress[child.name] !== undefined && (
-                  <div
-                    className="absolute top-0 left-0 w-full h-full bg-gray-700 rounded-md"
-                    style={{
-                      transition: "width 0.3s ease",
-                      width: `${progress[child.name]}%`,
-                      backgroundColor: "#191E24", // Darker blue from DaisyUI theme
-                    }}
-                  ></div>
-                )}
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-500">No .epub files found in this folder.</p>
-          )}
+                  <input
+                    type="checkbox"
+                    id={`file-${index}`}
+                    className="absolute left-2 w-5 h-5 z-10"
+                    onChange={() => handleCheckboxChange(child)}
+                    checked={selectedFiles.includes(child)}
+                  />
+                  <label
+                    htmlFor={`file-${index}`}
+                    className="text-sm text-gray-300 pl-12 w-full z-10"
+                  >
+                    {child.name}
+                  </label>
+                  {progress[child.name] !== undefined && (
+                    <div
+                      className="absolute top-0 left-0 w-full h-full bg-gray-700 rounded-md"
+                      style={{
+                        transition: "width 0.3s ease",
+                        width: `${progress[child.name]}%`,
+                        backgroundColor: "#191E24", // Darker blue from DaisyUI theme
+                      }}
+                    >
+                    </div>
+                  )}
+                </div>
+              ))
+            )
+            : (
+              <p className="text-gray-500">
+                No .epub files found in this folder.
+              </p>
+            )}
         </div>
         {isDownloading && (
           <div className="w-full h-2 bg-gray-500 rounded mt-4">
@@ -248,7 +284,8 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
                 width: `${totalProgress}%`,
                 transition: "width 0.3s ease",
               }}
-            ></div>
+            >
+            </div>
           </div>
         )}
         <button
