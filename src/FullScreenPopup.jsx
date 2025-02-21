@@ -15,6 +15,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [speedHistory, setSpeedHistory] = useState([]);
   const [displaySpeed, setDisplaySpeed] = useState(0);
+  const [downloadedFiles, setDownloadedFiles] = useState(new Set());
   const SPEED_SAMPLE_SIZE = 5; // Number of samples to average
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
@@ -170,6 +171,33 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     return hash;
   };
 
+  const loadDownloadHistory = () => {
+    try {
+      const history = JSON.parse(
+        localStorage.getItem("downloadHistory") || "{}",
+      );
+      return new Set(history[selectedUrl] || []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const saveDownloadHistory = (files) => {
+    try {
+      const history = JSON.parse(
+        localStorage.getItem("downloadHistory") || "{}",
+      );
+      history[selectedUrl] = Array.from(files);
+      localStorage.setItem("downloadHistory", JSON.stringify(history));
+    } catch (err) {
+      console.error("Failed to save download history:", err);
+    }
+  };
+
+  useEffect(() => {
+    setDownloadedFiles(loadDownloadHistory());
+  }, [selectedUrl]);
+
   const handleDownloadClick = async () => {
     setIsDownloading(true);
     setDownloadSpeed(0);
@@ -201,6 +229,14 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       await downloadNextBatch();
 
       const content = await zip.generateAsync({ type: "blob" });
+
+      const newDownloaded = new Set([
+        ...downloadedFiles,
+        ...selectedFiles.map((f) => f.name),
+      ]);
+      setDownloadedFiles(newDownloaded);
+      saveDownloadHistory(newDownloaded);
+
       const a = document.createElement("a");
       const url = URL.createObjectURL(content);
       a.href = url;
@@ -282,6 +318,8 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
                     className={`relative flex items-center p-3 group ${
                       selectedFiles.includes(child)
                         ? "bg-base-100"
+                        : downloadedFiles.has(child.name)
+                        ? "bg-success/5 hover:bg-base-100/50"
                         : "hover:bg-base-100/50"
                     }`}
                     style={{ transition: "background 0.3s ease" }}
@@ -300,7 +338,11 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
                     <input
                       type="checkbox"
                       id={`file-${index}`}
-                      className="checkbox checkbox-sm mr-4"
+                      className={`checkbox checkbox-sm mr-4 ${
+                        downloadedFiles.has(child.name)
+                          ? "checkbox-success"
+                          : ""
+                      }`}
                       onChange={() => handleCheckboxChange(child)}
                       checked={selectedFiles.includes(child)}
                     />
@@ -310,7 +352,14 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
                         htmlFor={`file-${index}`}
                         className="text-sm font-medium cursor-pointer flex items-center justify-between"
                       >
-                        <span className="truncate mr-4">{child.name}</span>
+                        <span className="truncate mr-4 flex items-center gap-2">
+                          {child.name}
+                          {downloadedFiles.has(child.name) && (
+                            <span className="text-success text-xs">
+                              ✓ Downloaded
+                            </span>
+                          )}
+                        </span>
                         <span className="text-xs text-gray-400 whitespace-nowrap">
                           {formatFileSize(child.size)}
                         </span>
