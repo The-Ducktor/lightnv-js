@@ -14,6 +14,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [seriesName, setSeriesName] = useState("novel");
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [speedHistory, setSpeedHistory] = useState([]);
+  const [displaySpeed, setDisplaySpeed] = useState(0);
   const SPEED_SAMPLE_SIZE = 5; // Number of samples to average
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
@@ -31,6 +32,21 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   useEffect(() => {
     fetchFiles();
   }, [selectedUrl]);
+
+  useEffect(() => {
+    let animationFrameId;
+    const smoothSpeed = () => {
+      setDisplaySpeed((prev) => {
+        const diff = downloadSpeed - prev;
+        if (Math.abs(diff) < 1) return downloadSpeed;
+        return prev + diff * 0.02; // Adjust 0.1 to control smoothing speed
+      });
+      animationFrameId = requestAnimationFrame(smoothSpeed);
+    };
+
+    animationFrameId = requestAnimationFrame(smoothSpeed);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [downloadSpeed]);
 
   const fetchFiles = async () => {
     try {
@@ -330,7 +346,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
               </div>
             </div>
             <div className="flex justify-between text-xs text-base-content/70">
-              <span>{formatSpeed(downloadSpeed)}</span>
+              <span>{formatSpeed(displaySpeed)}</span>
               <span>
                 {formatFileSize(
                   selectedFiles.reduce((acc, file) => acc + file.size, 0),
@@ -351,7 +367,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
                 <span className="loading loading-spinner loading-sm"></span>
                 Downloading {selectedFiles.length} files...
                 <span className="text-xs opacity-75">
-                  ({formatSpeed(downloadSpeed)})
+                  ({formatSpeed(displaySpeed)})
                 </span>
               </>
             )
