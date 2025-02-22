@@ -139,9 +139,14 @@ const LinkTable = () => {
                   <h1 className="text-4xl font-bold text-primary">
                     Light Novel Download
                   </h1>
-                  <p className="text-base-content/60">
-                    Discover your next read
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-base-content/60">
+                      Discover your next read
+                    </p>
+                    <div className="badge badge-neutral">
+                      {links.length} novels
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -178,6 +183,7 @@ const LinkTable = () => {
                   onChange={handleSearch}
                   className="input input-bordered w-full"
                 />
+                
               </div>
             </div>
 
