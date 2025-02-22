@@ -8,6 +8,7 @@ import { SearchService } from "./services/SearchService";
 const CACHE_DURATION = 60 * 60 * 1000;
 const MAX_TITLE_LENGTH = 60;
 const RESULTS_PER_PAGE = 5;
+const MAX_RECENT_NOVELS = 3;
 
 const LinkTable = () => {
   const [links, setLinks] = useState([]);
@@ -19,6 +20,7 @@ const LinkTable = () => {
   const [isPopupOpen, setIsPopupOpen] = useState(false); // State for full-screen popup
   const [selectedUrl, setSelectedUrl] = useState(""); // Store selected URL
   const [searchService] = useState(new SearchService());
+  const [recentNovels, setRecentNovels] = useState([]);
 
   // Helper functions and fetch logic remain unchanged
   const cleanGoogleLink = (link) => {
@@ -75,6 +77,31 @@ const LinkTable = () => {
     });
   };
 
+  const loadRecentNovels = () => {
+    const stored = sessionStorage.getItem("recentNovels");
+    return stored ? JSON.parse(stored) : [];
+  };
+
+  const saveRecentNovel = (link, title) => {
+    const recent = loadRecentNovels();
+    const novel = { link, title };
+
+    // Remove if already exists
+    const filtered = recent.filter((item) => item.link !== link);
+
+    // Add to beginning and limit to MAX_RECENT_NOVELS
+    const updated = [novel, ...filtered].slice(0, MAX_RECENT_NOVELS);
+
+    sessionStorage.setItem("recentNovels", JSON.stringify(updated));
+    setRecentNovels(updated);
+  };
+
+  const handleGetButtonClick = (link, title) => {
+    setSelectedUrl(link); // Set the URL to display in the popup
+    setIsPopupOpen(true); // Open the full-screen popup
+    saveRecentNovel(link, title);
+  };
+
   useEffect(() => {
     const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setIsDarkMode(savedDarkMode);
@@ -83,16 +110,12 @@ const LinkTable = () => {
       savedDarkMode ? "night" : "fantasy",
     );
     fetchLinks();
+    setRecentNovels(loadRecentNovels());
   }, []);
 
   const displayLinks = filteredLinks.length > 0
     ? filteredLinks
     : links.slice(0, RESULTS_PER_PAGE);
-
-  const handleGetButtonClick = (link) => {
-    setSelectedUrl(link); // Set the URL to display in the popup
-    setIsPopupOpen(true); // Open the full-screen popup
-  };
 
   return (
     <div className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300">
@@ -166,36 +189,107 @@ const LinkTable = () => {
               )
               : (
                 <div className="overflow-x-auto mt-6">
-                  <table className="table table-zebra w-full">
-                    <thead>
-                      <tr>
-                        <th className="bg-base-200 text-base-content/70 font-medium">
-                          Title
-                        </th>
-                        <th className="bg-base-200 text-base-content/70 font-medium text-right">
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayLinks.map(({ link, title }, index) => (
-                        <tr key={index}>
-                          <td className="font-medium">
-                            {truncateTitle(title)}
-                          </td>
-                          <td className="text-right">
-                            <button
-                              onClick={() =>
-                                handleGetButtonClick(link)} // Open popup with URL
-                              className="btn btn-primary btn-sm gap-1"
-                            >
-                              Get →
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {searchQuery && filteredLinks.length === 0
+                    ? (
+                      <div className="text-center py-8">
+                        <div className="text-base-content/60 text-lg">
+                          No results found for "{searchQuery}"
+                        </div>
+                        <p className="text-base-content/40 mt-2">
+                          Try different keywords or refresh the list
+                        </p>
+                      </div>
+                    )
+                    : !searchQuery
+                    ? (
+                      <div>
+                        {recentNovels.length > 0
+                          ? (
+                            <>
+                              <div className="text-center py-4">
+                                <div className="text-base-content/60 text-lg">
+                                  Recently Opened Novels
+                                </div>
+                              </div>
+                              <table className="table table-zebra w-full">
+                                <thead>
+                                  <tr>
+                                    <th className="bg-base-200 text-base-content/70 font-medium">
+                                      Title
+                                    </th>
+                                    <th className="bg-base-200 text-base-content/70 font-medium text-right">
+                                      Action
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {recentNovels.map((
+                                    { link, title },
+                                    index,
+                                  ) => (
+                                    <tr key={index}>
+                                      <td className="font-medium">
+                                        {truncateTitle(title)}
+                                      </td>
+                                      <td className="text-right">
+                                        <button
+                                          onClick={() =>
+                                            handleGetButtonClick(link, title)}
+                                          className="btn btn-primary btn-sm gap-1"
+                                        >
+                                          Get →
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </>
+                          )
+                          : (
+                            <div className="text-center py-8">
+                              <div className="text-base-content/60 text-lg">
+                                No recently opened novels
+                              </div>
+                              <p className="text-base-content/40 mt-2">
+                                Start typing to search novels
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                    )
+                    : (
+                      <table className="table table-zebra w-full">
+                        <thead>
+                          <tr>
+                            <th className="bg-base-200 text-base-content/70 font-medium">
+                              Title
+                            </th>
+                            <th className="bg-base-200 text-base-content/70 font-medium text-right">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayLinks.map(({ link, title }, index) => (
+                            <tr key={index}>
+                              <td className="font-medium">
+                                {truncateTitle(title)}
+                              </td>
+                              <td className="text-right">
+                                <button
+                                  onClick={() =>
+                                    handleGetButtonClick(link, title)}
+                                  className="btn btn-primary btn-sm gap-1"
+                                >
+                                  Get →
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                 </div>
               )}
           </div>
