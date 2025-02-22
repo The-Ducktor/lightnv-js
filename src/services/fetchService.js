@@ -1,39 +1,47 @@
 import { cleanGoogleLink, extractMegaId } from "../utils/mega";
+import { fetchPdfFromUrl, parsePdf } from "../utils/pdfParser";
 import { DatabaseService } from "./db";
 
 export class FetchService {
   static SPREADSHEET_URL =
-    "https://cloudflare-cors-anywhere.hackmeforlife.workers.dev/?https://docs.google.com/spreadsheets/u/0/d/e/2PACX-1vSvd0SjjPYZKzhUwTYK2n2peZD_n6_wDmEKV3I37nuM-FnOtAU5xZkec35GabjrZ6olJTbr_CMXS6AH/pub";
+    "https://cloudflare-cors-anywhere.hackmeforlife.workers.dev/?https://docs.google.com/spreadsheets/d/e/2PACX-1vSvd0SjjPYZKzhUwTYK2n2peZD_n6_wDmEKV3I37nuM-FnOtAU5xZkec35GabjrZ6olJTbr_CMXS6AH/pub?output=pdf";
 
   static async fetchAndProcessLinks() {
-    const response = await fetch(this.SPREADSHEET_URL);
+    try {
+      const pdfData = await fetchPdfFromUrl(this.SPREADSHEET_URL);
+      if (!pdfData || pdfData.length === 0) {
+        throw new Error("Failed to fetch PDF data");
+      }
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch data: ${response.status}`);
+      const rawLinks = await parsePdf(pdfData);
+      if (!rawLinks || rawLinks.length === 0) {
+        throw new Error("No links found in PDF");
+      }
+
+      return rawLinks
+        .map((item) => {
+          try {
+            const degoogle_link = cleanGoogleLink(item.link);
+            const link = decodeURI(degoogle_link);
+            const megaId = extractMegaId(link);
+
+            return {
+              link,
+              megaId,
+              title: item.title || "Untitled",
+              timestamp: Date.now(),
+              status: "active",
+            };
+          } catch (err) {
+            console.error(`Failed to process link: ${item.link}`, err);
+            return null;
+          }
+        })
+        .filter(Boolean);
+    } catch (error) {
+      console.error("PDF processing error:", error);
+      throw new Error(`Failed to process PDF: ${error.message}`);
     }
-
-    const html = await response.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const rows = Array.from(doc.querySelectorAll("tbody tr"));
-
-    return rows
-      .map((row) => {
-        const linkElement = row.querySelector("a");
-        if (!linkElement?.href) return null;
-
-        const degoogle_link = cleanGoogleLink(linkElement.href);
-        const link = decodeURI(degoogle_link);
-        const megaId = extractMegaId(link);
-
-        return {
-          link,
-          megaId,
-          title: row.querySelectorAll("td")[1]?.textContent || "Untitled",
-          timestamp: Date.now(),
-          status: "active", // Add status field for better record management
-        };
-      })
-      .filter(Boolean);
   }
 
   static async refreshLinks(forceFetch = false) {
