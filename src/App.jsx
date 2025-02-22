@@ -68,17 +68,17 @@ const LinkTable = () => {
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => {
       const newMode = !prev;
-      localStorage.setItem("darkMode", isDarkMode);
+      localStorage.setItem("darkMode", newMode);
       document.documentElement.setAttribute(
         "data-theme",
-        newMode ? "dark" : "cupcake",
+        newMode ? "night" : "tree",
       );
       return newMode;
     });
   };
 
   const loadRecentNovels = () => {
-    const stored = sessionStorage.getItem("recentNovels");
+    const stored = localStorage.getItem("recentNovels");
     return stored ? JSON.parse(stored) : [];
   };
 
@@ -92,7 +92,7 @@ const LinkTable = () => {
     // Add to beginning and limit to MAX_RECENT_NOVELS
     const updated = [novel, ...filtered].slice(0, MAX_RECENT_NOVELS);
 
-    sessionStorage.setItem("recentNovels", JSON.stringify(updated));
+    localStorage.setItem("recentNovels", JSON.stringify(updated));
     setRecentNovels(updated);
   };
 
@@ -118,14 +118,15 @@ const LinkTable = () => {
     : links.slice(0, RESULTS_PER_PAGE);
 
   return (
-    <div className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300">
-      <div className="container mx-auto px-4 py-8">
+    <div data-theme="tree" className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300 ">
+      <div className="container mx-auto p-4 md:p-8 max-w-5xl">
         <div className="card w-full bg-base-100 shadow-xl">
-          <div className="card-body">
+          <div className="card-body p-4 md:p-6">
+            {/* Header Section */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
                 <div className="avatar">
-                  <div className="w-16 h-16 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100">
+                  <div className="w-20 md:w-16 h-20 md:h-16 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100">
                     <div className="bg-primary/10 w-full h-full flex items-center justify-center">
                       <img
                         src={logoimg} // Assuming logoimg is the URL of the image
@@ -135,11 +136,11 @@ const LinkTable = () => {
                     </div>
                   </div>
                 </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-primary">
+                <div className="text-center md:text-left">
+                  <h1 className="text-3xl md:text-4xl font-bold text-primary">
                     Light Novel Download
                   </h1>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
                     <p className="text-base-content/60">
                       Discover your next read
                     </p>
@@ -159,34 +160,35 @@ const LinkTable = () => {
                   <RefreshCw
                     className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
                   />
-                  {isLoading ? "Loading" : "Refresh"}
+                  <span className="hidden md:inline">
+                    {isLoading ? "Loading" : "Refresh"}
+                  </span>
                 </button>
                 <button
                   onClick={toggleDarkMode}
-                  className="btn btn-ghost btn-circle btn-lg"
+                  className="btn btn-ghost btn-circle"
                 >
                   {isDarkMode
-                    ? <Sun className="w-6 h-6 text-warning" />
-                    : <Moon className="w-6 h-6 text-primary" />}
+                    ? <Sun className="w-5 h-5 text-warning" />
+                    : <Moon className="w-5 h-5 text-primary" />}
                 </button>
               </div>
             </div>
 
-            <div className="divider"></div>
+            <div className="divider my-2 md:my-4"></div>
 
+            {/* Search Section */}
             <div className="form-control">
-              <div className="input-group">
-                <input
-                  type="search"
-                  placeholder="Search novels..."
-                  value={searchQuery}
-                  onChange={handleSearch}
-                  className="input input-bordered w-full"
-                />
-                
-              </div>
+              <input
+                type="search"
+                placeholder="Search novels..."
+                value={searchQuery}
+                onChange={handleSearch}
+                className="input input-bordered w-full transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+              />
             </div>
 
+            {/* Content Section */}
             {error
               ? (
                 <div className="alert alert-error shadow-lg mt-6">
@@ -208,93 +210,64 @@ const LinkTable = () => {
                     )
                     : !searchQuery
                     ? (
-                      <div>
-                        {recentNovels.length > 0
-                          ? (
-                            <>
-                              <div className="text-center py-4">
-                                <div className="text-base-content/60 text-lg">
-                                  Recently Opened Novels
-                                </div>
-                              </div>
-                              <table className="table table-zebra w-full">
-                                <thead>
-                                  <tr>
-                                    <th className="bg-base-200 text-base-content/70 font-medium">
-                                      Title
-                                    </th>
-                                    <th className="bg-base-200 text-base-content/70 font-medium text-right">
-                                      Action
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {recentNovels.map((
-                                    { link, title },
-                                    index,
-                                  ) => (
-                                    <tr key={index}>
-                                      <td className="font-medium">
-                                        {truncateTitle(title)}
-                                      </td>
-                                      <td className="text-right">
-                                        <button
-                                          onClick={() =>
-                                            handleGetButtonClick(link, title)}
-                                          className="btn btn-primary btn-sm gap-1"
-                                        >
-                                          Get →
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </>
-                          )
-                          : (
-                            <div className="text-center py-8">
-                              <div className="text-base-content/60 text-lg">
-                                No recently opened novels
-                              </div>
-                              <p className="text-base-content/40 mt-2">
-                                Start typing to search novels
-                              </p>
+                      <div className="space-y-6">
+                        {recentNovels.length > 0 && (
+                          <>
+                            <div className="text-center md:text-left">
+                              <h2 className="text-xl font-semibold text-base-content/80">
+                                Recently Opened Novels
+                              </h2>
                             </div>
-                          )}
+                            <div className="grid gap-4">
+                              {recentNovels.map((
+                                { link, title },
+                                index,
+                              ) => (
+                                <div
+                                  key={index}
+                                  className="card bg-base-200 shadow-sm hover:shadow-md transition-all"
+                                >
+                                  <div className="card-body p-4 flex-row justify-between items-center">
+                                    <h3 className="card-title text-base font-medium">
+                                      {truncateTitle(title)}
+                                    </h3>
+                                    <button
+                                      onClick={() =>
+                                        handleGetButtonClick(link, title)}
+                                      className="btn btn-primary btn-sm gap-1"
+                                    >
+                                      Get →
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     )
                     : (
-                      <table className="table table-zebra w-full">
-                        <thead>
-                          <tr>
-                            <th className="bg-base-200 text-base-content/70 font-medium">
-                              Title
-                            </th>
-                            <th className="bg-base-200 text-base-content/70 font-medium text-right">
-                              Action
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {displayLinks.map(({ link, title }, index) => (
-                            <tr key={index}>
-                              <td className="font-medium">
+                      <div className="grid gap-4">
+                        {displayLinks.map(({ link, title }, index) => (
+                          <div
+                            key={index}
+                            className="card bg-base-200 hover:bg-base-300 shadow-sm hover:shadow-md transition-all duration-200 ease-in-out"
+                          >
+                            <div className="card-body p-4 flex-row justify-between items-center">
+                              <h3 className="card-title text-base font-medium hover:text-primary transition-colors">
                                 {truncateTitle(title)}
-                              </td>
-                              <td className="text-right">
-                                <button
-                                  onClick={() =>
-                                    handleGetButtonClick(link, title)}
-                                  className="btn btn-primary btn-sm gap-1"
-                                >
-                                  Get →
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              </h3>
+                              <button
+                                onClick={() =>
+                                  handleGetButtonClick(link, title)}
+                                className="btn btn-primary btn-sm gap-1 hover:scale-105 transition-transform"
+                              >
+                                Get →
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                 </div>
               )}
