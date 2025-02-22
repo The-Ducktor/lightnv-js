@@ -307,7 +307,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
         {Object.entries(groupedEmojis).map(([emoji, texts]) => (
           <span
             key={emoji}
-            className="tooltip tooltip-info cursor-help"
+            className="tooltip tooltip-info cursor-help opacity-40 hover:opacity-100"
             data-tip={texts.join(", ")}
           >
             {emoji}
