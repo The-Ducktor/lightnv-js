@@ -31,6 +31,14 @@ export class SearchService {
     );
   }
 
+  containsMatch(title, query) {
+    return title.toLowerCase().includes(query.toLowerCase());
+  }
+
+  startsWithMatch(title, query) {
+    return title.toLowerCase().startsWith(query.toLowerCase());
+  }
+
   search(query, limit = 5) {
     if (!query) return [];
 
@@ -53,22 +61,24 @@ export class SearchService {
 
     // Add MiniSearch results with higher weight
     miniResults.forEach((result) => {
+      const boost = this.calculateBoost(result.title, query);
       mergedResults.set(result.link, {
         ...result,
-        score: result.score * 150, // Increased weight for MiniSearch results
+        score: result.score * 150 + boost, // Base MiniSearch weight + additional boost
       });
     });
 
     // Add FuzzySort results as supplementary
     fuzzyResults.forEach((result) => {
       const existing = mergedResults.get(result.obj.link);
+      const boost = this.calculateBoost(result.obj.title, query);
+
       if (existing) {
-        // Add small boost if found by both engines
-        existing.score += result.score + 500;
+        existing.score += result.score + 500 + boost;
       } else {
         mergedResults.set(result.obj.link, {
           ...result.obj,
-          score: result.score + 500,
+          score: result.score + 500 + boost,
         });
       }
     });
@@ -76,5 +86,16 @@ export class SearchService {
     return Array.from(mergedResults.values())
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
+  }
+
+  calculateBoost(title, query) {
+    let boost = 0;
+    if (this.containsMatch(title, query)) {
+      boost += 1000; // Significant boost for containing the exact phrase
+    }
+    if (this.startsWithMatch(title, query)) {
+      boost += 2000; // Even higher boost for starting with the phrase
+    }
+    return boost;
   }
 }
