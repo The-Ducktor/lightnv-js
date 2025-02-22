@@ -22,7 +22,7 @@ export class FetchService {
         if (!linkElement?.href) return null;
 
         const degoogle_link = cleanGoogleLink(linkElement.href);
-        const link = decodeURI(degoogle_link)
+        const link = decodeURI(degoogle_link);
         const megaId = extractMegaId(link);
 
         return {
@@ -30,6 +30,7 @@ export class FetchService {
           megaId,
           title: row.querySelectorAll("td")[1]?.textContent || "Untitled",
           timestamp: Date.now(),
+          status: "active", // Add status field for better record management
         };
       })
       .filter(Boolean);
@@ -37,6 +38,10 @@ export class FetchService {
 
   static async refreshLinks(forceFetch = false) {
     try {
+      if (forceFetch) {
+        await DatabaseService.invalidateCache();
+      }
+
       const shouldFetch = forceFetch || (await DatabaseService.isDataStale());
 
       if (!shouldFetch) {

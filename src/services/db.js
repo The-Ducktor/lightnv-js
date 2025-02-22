@@ -1,5 +1,5 @@
 const DB_NAME = "lightnvDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Increased version number
 const STORES = {
   links: "links",
   metadata: "metadata",
@@ -15,18 +15,22 @@ export class DatabaseService {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
+        const oldVersion = event.oldVersion;
 
-        // Create links store
-        if (!db.objectStoreNames.contains(STORES.links)) {
+        if (oldVersion < 1) {
+          // Create initial stores
           db.createObjectStore(STORES.links, {
             keyPath: "id",
             autoIncrement: true,
           });
+          db.createObjectStore(STORES.metadata, { keyPath: "key" });
         }
 
-        // Create metadata store
-        if (!db.objectStoreNames.contains(STORES.metadata)) {
-          db.createObjectStore(STORES.metadata, { keyPath: "key" });
+        if (oldVersion < 2) {
+          // Add indexes for better querying
+          const linkStore = event.target.transaction.objectStore(STORES.links);
+          linkStore.createIndex("megaId", "megaId", { unique: false });
+          linkStore.createIndex("timestamp", "timestamp", { unique: false });
         }
       };
     });
@@ -36,60 +40,121 @@ export class DatabaseService {
     const db = await this.initDB();
     const timestamp = Date.now();
 
-    const tx = db.transaction([STORES.links, STORES.metadata], "readwrite");
+    return await this.runTransaction(
+      [STORES.links, STORES.metadata],
+      async (stores) => {
+        const [linksStore, metadataStore] = stores;
 
-    return new Promise((resolve, reject) => {
-      try {
-        const linksStore = tx.objectStore(STORES.links);
-        const metadataStore = tx.objectStore(STORES.metadata);
+        // Batch delete old records
+        await this.clearStore(linksStore);
 
-        // Clear existing data
-        linksStore.clear();
-
-        // Add new links
-        links.forEach((link) => linksStore.add(link));
+        // Batch insert new records
+        const chunkedLinks = this.chunkArray(links, 100);
+        for (const chunk of chunkedLinks) {
+          await Promise.all(
+            chunk.map((link) =>
+              this.addToStore(linksStore, {
+                ...link,
+                version: DB_VERSION,
+                lastUpdated: timestamp,
+              })
+            )
+          );
+        }
 
         // Update metadata
-        metadataStore.put({
+        await this.addToStore(metadataStore, {
           key: "lastUpdate",
           timestamp,
           count: links.length,
+          version: DB_VERSION,
         });
 
-        tx.oncomplete = () => resolve({ timestamp, count: links.length });
-        tx.onerror = () => reject(tx.error);
-      } catch (error) {
-        reject(error);
+        return { timestamp, count: links.length };
       }
-    });
+    );
   }
 
   static async getLinks() {
+    return await this.runTransaction(
+      [STORES.links, STORES.metadata],
+      async (stores) => {
+        const [linksStore, metadataStore] = stores;
+
+        const links = await this.getAllFromStore(linksStore);
+        const metadata = await this.getFromStore(metadataStore, "lastUpdate");
+
+        return { links, metadata };
+      },
+      "readonly"
+    );
+  }
+
+  // Helper methods for better transaction management
+  static async runTransaction(storeNames, callback, mode = "readwrite") {
     const db = await this.initDB();
+    const tx = db.transaction(storeNames, mode);
+    const stores = storeNames.map((name) => tx.objectStore(name));
 
+    try {
+      const result = await callback(stores);
+      return await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (error) {
+      tx.abort();
+      throw error;
+    }
+  }
+
+  static chunkArray(array, size) {
+    return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
+      array.slice(i * size, (i + 1) * size)
+    );
+  }
+
+  static addToStore(store, item) {
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORES.links, STORES.metadata], "readonly");
-      const linksStore = tx.objectStore(STORES.links);
-      const metadataStore = tx.objectStore(STORES.metadata);
-
-      const links = [];
-      let metadata = null;
-
-      linksStore.openCursor().onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          links.push(cursor.value);
-          cursor.continue();
-        }
-      };
-
-      metadataStore.get("lastUpdate").onsuccess = (event) => {
-        metadata = event.target.result;
-      };
-
-      tx.oncomplete = () => resolve({ links, metadata });
-      tx.onerror = () => reject(tx.error);
+      const request = store.put(item);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
     });
+  }
+
+  static getAllFromStore(store) {
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  static getFromStore(store, key) {
+    return new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  static clearStore(store) {
+    return new Promise((resolve, reject) => {
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  static async invalidateCache() {
+    return await this.runTransaction(
+      [STORES.links, STORES.metadata],
+      async (stores) => {
+        const [linksStore, metadataStore] = stores;
+        await this.clearStore(linksStore);
+        await this.clearStore(metadataStore);
+      }
+    );
   }
 
   static async isDataStale(maxAge = 60 * 60 * 1000) {
