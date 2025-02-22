@@ -28,7 +28,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState({});
   const [totalProgress, setTotalProgress] = useState(0);
-  const [seriesName, setSeriesName] = useState("novel");
+  const [seriesName, setSeriesName] = useState("Light Novel");
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [speedHistory, setSpeedHistory] = useState([]);
   const [displaySpeed, setDisplaySpeed] = useState(0);
