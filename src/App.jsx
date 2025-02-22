@@ -78,7 +78,7 @@ const LinkTable = () => {
   };
 
   const loadRecentNovels = () => {
-    const stored = sessionStorage.getItem("recentNovels");
+    const stored = localStorage.getItem("recentNovels");
     return stored ? JSON.parse(stored) : [];
   };
 
@@ -92,7 +92,7 @@ const LinkTable = () => {
     // Add to beginning and limit to MAX_RECENT_NOVELS
     const updated = [novel, ...filtered].slice(0, MAX_RECENT_NOVELS);
 
-    sessionStorage.setItem("recentNovels", JSON.stringify(updated));
+    localStorage.setItem("recentNovels", JSON.stringify(updated));
     setRecentNovels(updated);
   };
 
