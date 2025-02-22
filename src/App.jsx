@@ -1,9 +1,9 @@
 import { Moon, RefreshCw, Sun } from "lucide-react";
-import MiniSearch from "minisearch";
 import React, { useEffect, useState } from "react";
 import logoimg from "./assets/ff.avif";
 import FullScreenPopup from "./FullScreenPopup";
 import { FetchService } from "./services/fetchService";
+import { SearchService } from "./services/SearchService";
 
 const CACHE_DURATION = 60 * 60 * 1000;
 const MAX_TITLE_LENGTH = 60;
@@ -18,7 +18,7 @@ const LinkTable = () => {
   const [error, setError] = useState(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false); // State for full-screen popup
   const [selectedUrl, setSelectedUrl] = useState(""); // Store selected URL
-  const [searchEngine, setSearchEngine] = useState(null);
+  const [searchService] = useState(new SearchService());
 
   // Helper functions and fetch logic remain unchanged
   const cleanGoogleLink = (link) => {
@@ -32,19 +32,7 @@ const LinkTable = () => {
   };
 
   const initializeSearch = (links) => {
-    const miniSearch = new MiniSearch({
-      fields: ["title"],
-      storeFields: ["title", "link"],
-      searchOptions: {
-        fuzzy: 0.4, // Increased from 0.2
-        prefix: true,
-        boost: { title: 2 },
-        combineWith: "OR", // Added to match any term instead of all terms
-      },
-    });
-
-    miniSearch.addAll(links.map((link, index) => ({ ...link, id: index })));
-    setSearchEngine(miniSearch);
+    searchService.initialize(links);
   };
 
   const fetchLinks = async (forceFetch = false) => {
@@ -72,20 +60,7 @@ const LinkTable = () => {
   const handleSearch = (event) => {
     const query = event.target.value;
     setSearchQuery(query);
-
-    if (!query || !searchEngine) {
-      setFilteredLinks([]);
-      return;
-    }
-
-    const results = searchEngine.search(query, {
-      boost: { title: 2 },
-      fuzzy: 0.4, // Increased from 0.2
-      prefix: true,
-      combineWith: "OR", // Added to match any term instead of all terms
-    });
-
-    setFilteredLinks(results.slice(0, RESULTS_PER_PAGE));
+    setFilteredLinks(searchService.search(query, RESULTS_PER_PAGE));
   };
 
   const toggleDarkMode = () => {
