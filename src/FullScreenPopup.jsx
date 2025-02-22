@@ -28,7 +28,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState({});
   const [totalProgress, setTotalProgress] = useState(0);
-  const [seriesName, setSeriesName] = useState("novel");
+  const [seriesName, setSeriesName] = useState("Light Novel");
   const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [speedHistory, setSpeedHistory] = useState([]);
   const [displaySpeed, setDisplaySpeed] = useState(0);
@@ -36,6 +36,20 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const SPEED_SAMPLE_SIZE = 5; // Number of samples to average
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
+
+  const isFirefox = () => {
+    return navigator.userAgent.toLowerCase().includes("firefox");
+  };
+
+  const FirefoxWarning = () => {
+    if (!isFirefox()) return null;
+    return (
+      <div className="alert alert-warning mb-4 text-sm">
+        ⚠️ Firefox users: Due to CORS restrictions, downloads may not work
+        properly. Please use Chrome or Edge for the best experience.
+      </div>
+    );
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -328,6 +342,7 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
         </button>
         <h2 className="text-2xl font-semibold mb-2">{seriesName}</h2>
         <EmojiLegend />
+        <FirefoxWarning />
         <div className="text-xs text-gray-400 mb-4 break-all">
           <span className="font-semibold">MEGA Link:</span>
           <br />
