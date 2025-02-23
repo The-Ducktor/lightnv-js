@@ -6,7 +6,7 @@ export class FetchService {
   static SPREADSHEET_URL =
     "https://cloudflare-cors-anywhere.hackmeforlife.workers.dev/?https://docs.google.com/spreadsheets/d/e/2PACX-1vSvd0SjjPYZKzhUwTYK2n2peZD_n6_wDmEKV3I37nuM-FnOtAU5xZkec35GabjrZ6olJTbr_CMXS6AH/pub?output=pdf";
 
-  static async fetchAndProcessLinks() {
+  static async fetchAndProcessLinks(retryCount = 0) {
     try {
       const pdfData = await fetchPdfFromUrl(this.SPREADSHEET_URL);
       if (!pdfData || pdfData.length === 0) {
@@ -16,6 +16,24 @@ export class FetchService {
       const rawLinks = await parsePdf(pdfData);
       if (!rawLinks || rawLinks.length === 0) {
         throw new Error("No links found in PDF");
+      }
+
+      // Check if first page contains "Loading..."
+      if (rawLinks[0]?.title?.includes("Loading...")) {
+        if (retryCount < 3) {
+          // Wait for 2 seconds before retrying
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          return this.fetchAndProcessLinks(retryCount + 1);
+        } else {
+          // After 3 retries, try to get old data
+          const { links } = await DatabaseService.getLinks();
+          if (links.length > 0) {
+            return links;
+          }
+          throw new Error(
+            "Sheet is still loading and no cached data available"
+          );
+        }
       }
 
       return rawLinks
