@@ -1,7 +1,7 @@
-import JSZip from "jszip";
 import { File } from "megajs";
 import { orderBy } from "natural-orderby";
 import React, { useEffect, useState } from "react";
+import { DownloadManager } from "./utils/DownloadManager";
 
 const EMOJI_REPLACEMENTS = {
   "J-Novel Club": "📖",
@@ -36,6 +36,21 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const SPEED_SAMPLE_SIZE = 5; // Number of samples to average
 
   const CONCURRENT_DOWNLOADS = 2; // Max number of concurrent downloads
+
+  const [downloadManager] = useState(() =>
+    new DownloadManager({
+      onProgressUpdate: (newProgress) => {
+        setProgress(newProgress);
+        const cumulativeProgress = Object.values(newProgress).reduce(
+          (acc, p) => acc + p,
+          0,
+        ) / selectedFiles.length;
+        setTotalProgress(cumulativeProgress);
+      },
+      onSpeedUpdate: (speed) => setDownloadSpeed(speed),
+      onError: (err) => setError("Download failed: " + err.message),
+    })
+  );
 
   const isFirefox = () => {
     return navigator.userAgent.toLowerCase().includes("firefox");
@@ -141,58 +156,6 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
     return newHistory.reduce((a, b) => a + b, 0) / newHistory.length;
   };
 
-  const downloadFile = async (file, zip, newProgress) => {
-    const fileName = file.name;
-    const fileSize = file.size;
-    newProgress[fileName] = 0;
-    setProgress({ ...newProgress });
-
-    let lastBytes = 0;
-    let lastTime = Date.now();
-
-    const downloadStream = await file.download();
-    const chunks = [];
-
-    downloadStream.on("progress", ({ bytesLoaded }) => {
-      const now = Date.now();
-      const timeDiff = (now - lastTime) / 1000; // Convert to seconds
-      const bytesDiff = bytesLoaded - lastBytes;
-
-      if (timeDiff > 0.1) { // Only update speed every 100ms
-        const currentSpeed = bytesDiff / timeDiff;
-        const avgSpeed = getAverageSpeed(currentSpeed);
-        setDownloadSpeed(avgSpeed);
-
-        lastBytes = bytesLoaded;
-        lastTime = now;
-      }
-
-      newProgress[fileName] = (bytesLoaded / fileSize) * 100;
-      setProgress({ ...newProgress });
-
-      const cumulativeProgress = Object.values(newProgress).reduce(
-        (acc, p) => acc + p,
-        0,
-      ) / selectedFiles.length;
-      setTotalProgress(cumulativeProgress);
-    });
-
-    for await (const chunk of downloadStream) {
-      chunks.push(chunk);
-    }
-
-    const concatenated = new Uint8Array(
-      chunks.reduce((acc, chunk) => acc + chunk.length, 0),
-    );
-    let offset = 0;
-    for (const chunk of chunks) {
-      concatenated.set(new Uint8Array(chunk), offset);
-      offset += chunk.length;
-    }
-
-    zip.file(fileName, concatenated);
-  };
-
   const generateSimpleHash = () => {
     const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
     let hash = "";
@@ -232,34 +195,12 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
   const handleDownloadClick = async () => {
     setIsDownloading(true);
     setDownloadSpeed(0);
-    setSpeedHistory([]);
-    const zip = new JSZip();
-    const newProgress = {};
-    let downloadQueue = [...selectedFiles];
-
-    const downloadNextBatch = async () => {
-      const activeDownloads = [];
-
-      for (
-        let i = 0;
-        i < CONCURRENT_DOWNLOADS && downloadQueue.length > 0;
-        i++
-      ) {
-        const file = downloadQueue.shift();
-        activeDownloads.push(downloadFile(file, zip, newProgress));
-      }
-
-      await Promise.all(activeDownloads);
-
-      if (downloadQueue.length > 0) {
-        await downloadNextBatch();
-      }
-    };
 
     try {
-      await downloadNextBatch();
-
-      const content = await zip.generateAsync({ type: "blob" });
+      const { blob, filename } = await downloadManager.downloadFiles(
+        selectedFiles,
+        seriesName,
+      );
 
       const newDownloaded = new Set([
         ...downloadedFiles,
@@ -269,10 +210,9 @@ const FullScreenPopup = ({ selectedUrl, onClose }) => {
       saveDownloadHistory(newDownloaded);
 
       const a = document.createElement("a");
-      const url = URL.createObjectURL(content);
+      const url = URL.createObjectURL(blob);
       a.href = url;
-      const hash = generateSimpleHash();
-      a.download = `${seriesName} - ${hash}.zip`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
