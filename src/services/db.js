@@ -180,4 +180,15 @@ export class DatabaseService {
       return true;
     }
   }
+
+  static async deleteDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(DB_NAME);
+      request.onsuccess = () => {
+        console.log("Database deleted successfully");
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
 }
