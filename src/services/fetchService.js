@@ -82,22 +82,26 @@ export class FetchService {
       // Check if we need to update the database
       const lastUpdateTimestamp =
         await DatabaseService.getLastUpdateTimestamp();
-      const shouldUpdate =
-        forceFetch ||
-        !lastUpdateTimestamp ||
-        lastUpdateTimestamp !== updateTimestamp;
 
-      if (shouldUpdate) {
+      if (lastUpdateTimestamp === updateTimestamp) {
+        return {
+          links,
+          fromCache: false,
+          timestamp: updateTimestamp,
+          unchanged: true,
+        };
+      }
+
+      if (forceFetch || !lastUpdateTimestamp) {
         console.log("Updating database with new data...");
         await DatabaseService.saveLinks(links, updateTimestamp);
-      } else {
-        console.log("No new updates, skipping database write");
       }
 
       return {
         links,
         fromCache: false,
         timestamp: updateTimestamp,
+        unchanged: false,
       };
     } catch (error) {
       throw new Error(`Failed to refresh links: ${error.message}`);

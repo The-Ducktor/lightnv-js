@@ -22,6 +22,25 @@ const LinkTable = () => {
   const [searchService] = useState(new SearchService());
   const [recentNovels, setRecentNovels] = useState([]);
   const [timestamp, setTimestamp] = useState(null);
+  const [previousCount, setPreviousCount] = useState(0);
+  const [countDiff, setCountDiff] = useState(null);
+  const [notification, setNotification] = useState(null);
+
+  const getStoredCounts = () => {
+    const stored = localStorage.getItem("novelCounts");
+    return stored ? JSON.parse(stored) : { previous: 0, current: 0 };
+  };
+
+  const updateStoredCounts = (current) => {
+    const { current: previousCurrent } = getStoredCounts();
+    localStorage.setItem(
+      "novelCounts",
+      JSON.stringify({
+        previous: previousCurrent,
+        current: current,
+      }),
+    );
+  };
 
   // Helper functions and fetch logic remain unchanged
   const cleanGoogleLink = (link) => {
@@ -43,13 +62,37 @@ const LinkTable = () => {
     setError(null);
 
     try {
-      const { links: fetchedLinks, timestamp } = await FetchService
+      const { links: fetchedLinks, timestamp, unchanged } = await FetchService
         .refreshLinks(forceFetch);
+
+      if (unchanged) {
+        setNotification({
+          type: "info",
+          message: "No new updates available",
+        });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
 
       if (timestamp) {
         console.log(`Data updated at ${new Date(timestamp).toLocaleString()}`);
         setTimestamp(timestamp);
       }
+
+      // Update counts and calculate difference
+      const { current: previousCount } = getStoredCounts();
+      const newCount = fetchedLinks.length;
+
+      if (previousCount > 0) {
+        const diff = newCount - previousCount;
+        if (diff !== 0) {
+          setCountDiff(diff);
+          setTimeout(() => setCountDiff(null), 5000);
+        }
+      }
+
+      // Store new counts
+      updateStoredCounts(newCount);
 
       setLinks(fetchedLinks);
       initializeSearch(fetchedLinks);
@@ -113,6 +156,9 @@ const LinkTable = () => {
     );
     fetchLinks();
     setRecentNovels(loadRecentNovels());
+    // Initialize from localStorage on component mount
+    const { current } = getStoredCounts();
+    setPreviousCount(current);
   }, []);
 
   const displayLinks = filteredLinks.length > 0
@@ -124,6 +170,14 @@ const LinkTable = () => {
       data-theme="tree"
       className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300 "
     >
+      {/* Add notification toast */}
+      {notification && (
+        <div className="toast toast-top toast-center">
+          <div className={`alert alert-${notification.type}`}>
+            <span>{notification.message}</span>
+          </div>
+        </div>
+      )}
       <div className="container mx-auto p-4 md:p-8 max-w-5xl">
         <div className="card w-full bg-base-100 shadow-xl">
           <div className="card-body p-4 md:p-6">
@@ -149,8 +203,18 @@ const LinkTable = () => {
                     <p className="text-base-content/60">
                       Discover your next read
                     </p>
-                    <div className="badge badge-neutral">
+                    <div className="badge badge-neutral gap-2">
                       {links.length} novels
+                      {countDiff && (
+                        <span
+                          className={`badge badge-${
+                            countDiff > 0 ? "success" : "error"
+                          } badge-sm`}
+                        >
+                          {countDiff > 0 ? "+" : ""}
+                          {countDiff}
+                        </span>
+                      )}
                     </div>
                     {timestamp && (
                       <div className="badge badge-ghost">
