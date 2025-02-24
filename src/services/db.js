@@ -36,7 +36,7 @@ export class DatabaseService {
     });
   }
 
-  static async saveLinks(links) {
+  static async saveLinks(links, updateTimestamp) {
     const db = await this.initDB();
     const timestamp = Date.now();
 
@@ -62,15 +62,16 @@ export class DatabaseService {
           );
         }
 
-        // Update metadata
+        // Update metadata with PDF's update timestamp
         await this.addToStore(metadataStore, {
           key: "lastUpdate",
           timestamp,
+          updateTimestamp: updateTimestamp || timestamp,
           count: links.length,
           version: DB_VERSION,
         });
 
-        return { timestamp, count: links.length };
+        return { timestamp: updateTimestamp || timestamp, count: links.length };
       }
     );
   }
@@ -88,6 +89,17 @@ export class DatabaseService {
       },
       "readonly"
     );
+  }
+
+  static async getLastUpdateTimestamp() {
+    const metadata = await this.runTransaction(
+      [STORES.metadata],
+      async ([metadataStore]) => {
+        return await this.getFromStore(metadataStore, "lastUpdate");
+      },
+      "readonly"
+    );
+    return metadata?.updateTimestamp || null;
   }
 
   // Helper methods for better transaction management

@@ -13,7 +13,7 @@ export class FetchService {
         throw new Error("Failed to fetch PDF data");
       }
 
-      const rawLinks = await parsePdf(pdfData);
+      const { links: rawLinks, updateTimestamp } = await parsePdf(pdfData);
       if (!rawLinks || rawLinks.length === 0) {
         throw new Error("No links found in PDF");
       }
@@ -36,7 +36,7 @@ export class FetchService {
         }
       }
 
-      return rawLinks
+      const processedLinks = rawLinks
         .map((item) => {
           try {
             const degoogle_link = cleanGoogleLink(item.link);
@@ -47,7 +47,7 @@ export class FetchService {
               link,
               megaId,
               title: item.title || "Untitled",
-              timestamp: Date.now(),
+              timestamp: updateTimestamp || Date.now(), // Use PDF's update timestamp
               status: "active",
             };
           } catch (err) {
@@ -56,6 +56,8 @@ export class FetchService {
           }
         })
         .filter(Boolean);
+
+      return { links: processedLinks, updateTimestamp };
     } catch (error) {
       console.error("PDF processing error:", error);
       throw new Error(`Failed to process PDF: ${error.message}`);
@@ -64,26 +66,38 @@ export class FetchService {
 
   static async refreshLinks(forceFetch = false) {
     try {
-      if (forceFetch) {
-        await DatabaseService.invalidateCache();
-      }
-
-      const shouldFetch = forceFetch || (await DatabaseService.isDataStale());
-
-      if (!shouldFetch) {
-        const { links } = await DatabaseService.getLinks();
-        if (links.length > 0) {
-          return { links, fromCache: true };
+      if (!forceFetch) {
+        const { links, metadata } = await DatabaseService.getLinks();
+        if (links.length > 0 && !(await DatabaseService.isDataStale())) {
+          return {
+            links,
+            fromCache: true,
+            timestamp: metadata?.updateTimestamp,
+          };
         }
       }
 
-      const links = await this.fetchAndProcessLinks();
-      const { timestamp } = await DatabaseService.saveLinks(links);
+      const { links, updateTimestamp } = await this.fetchAndProcessLinks();
+
+      // Check if we need to update the database
+      const lastUpdateTimestamp =
+        await DatabaseService.getLastUpdateTimestamp();
+      const shouldUpdate =
+        forceFetch ||
+        !lastUpdateTimestamp ||
+        lastUpdateTimestamp !== updateTimestamp;
+
+      if (shouldUpdate) {
+        console.log("Updating database with new data...");
+        await DatabaseService.saveLinks(links, updateTimestamp);
+      } else {
+        console.log("No new updates, skipping database write");
+      }
 
       return {
         links,
         fromCache: false,
-        timestamp,
+        timestamp: updateTimestamp,
       };
     } catch (error) {
       throw new Error(`Failed to refresh links: ${error.message}`);

@@ -27,13 +27,39 @@ function sanitizeTitle(title) {
     .trim();
 }
 
+function extractUpdateTime(textContent) {
+  for (const item of textContent.items) {
+    // Look specifically for the update time pattern
+    const match = item.str.match(
+      /Last update:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/i
+    );
+    if (match) {
+      console.log("Found update time:", match[1]); // Debug logging
+      const [, dateStr] = match;
+      const [date, time] = dateStr.split(" ");
+      const [day, month, year] = date.split("/");
+      const [hours, minutes] = time.split(":");
+      return new Date(year, month - 1, day, hours, minutes).getTime();
+    }
+  }
+  return null;
+}
+
 async function parsePdf(pdfData) {
   try {
     const linkData = [];
+    let updateTimestamp = null;
     const loadingTask = pdfjsLib.getDocument({ data: pdfData });
     const pdfDocument = await loadingTask.promise;
-    const numPages = pdfDocument.numPages;
 
+    // Extract update time from first page
+    const firstPage = await pdfDocument.getPage(1);
+    const firstPageText = await firstPage.getTextContent();
+    updateTimestamp = extractUpdateTime(firstPageText);
+    console.log("Extracted timestamp:", updateTimestamp); // Debug logging
+
+    // Continue parsing rest of the pages
+    const numPages = pdfDocument.numPages;
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
       const page = await pdfDocument.getPage(pageNum);
       const textContent = await page.getTextContent();
@@ -83,8 +109,12 @@ async function parsePdf(pdfData) {
       console.warn("No links found in PDF document");
     }
 
-    return linkData;
+    return {
+      links: linkData,
+      updateTimestamp: updateTimestamp || Date.now(), // Fallback to current time if not found
+    };
   } catch (error) {
+    console.error("PDF parsing error:", error); // Debug logging
     throw new Error(`PDF parsing error: ${error.message}`);
   }
 }

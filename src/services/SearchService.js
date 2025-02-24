@@ -3,11 +3,32 @@ import MiniSearch from "minisearch";
 
 export class SearchService {
   constructor() {
+    this.links = [];
+    this.searchIndex = new Map();
     this.miniSearch = null;
     this.fuzzyPrepared = null;
   }
 
   initialize(items) {
+    if (!Array.isArray(items)) {
+      this.links = [];
+      this.searchIndex.clear();
+      return;
+    }
+
+    this.links = items;
+    this.searchIndex.clear();
+
+    items.forEach((item, index) => {
+      const words = item.title.toLowerCase().split(/\s+/);
+      words.forEach((word) => {
+        if (!this.searchIndex.has(word)) {
+          this.searchIndex.set(word, new Set());
+        }
+        this.searchIndex.get(word).add(index);
+      });
+    });
+
     // Initialize MiniSearch
     this.miniSearch = new MiniSearch({
       fields: ["title"],

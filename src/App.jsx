@@ -21,6 +21,7 @@ const LinkTable = () => {
   const [selectedUrl, setSelectedUrl] = useState(""); // Store selected URL
   const [searchService] = useState(new SearchService());
   const [recentNovels, setRecentNovels] = useState([]);
+  const [timestamp, setTimestamp] = useState(null);
 
   // Helper functions and fetch logic remain unchanged
   const cleanGoogleLink = (link) => {
@@ -47,6 +48,7 @@ const LinkTable = () => {
 
       if (timestamp) {
         console.log(`Data updated at ${new Date(timestamp).toLocaleString()}`);
+        setTimestamp(timestamp);
       }
 
       setLinks(fetchedLinks);
@@ -118,7 +120,10 @@ const LinkTable = () => {
     : links.slice(0, RESULTS_PER_PAGE);
 
   return (
-    <div data-theme="tree" className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300 ">
+    <div
+      data-theme="tree"
+      className="min-h-screen transition-all duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-300 "
+    >
       <div className="container mx-auto p-4 md:p-8 max-w-5xl">
         <div className="card w-full bg-base-100 shadow-xl">
           <div className="card-body p-4 md:p-6">
@@ -147,6 +152,11 @@ const LinkTable = () => {
                     <div className="badge badge-neutral">
                       {links.length} novels
                     </div>
+                    {timestamp && (
+                      <div className="badge badge-ghost">
+                        Updated: {new Date(timestamp).toLocaleDateString()}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
