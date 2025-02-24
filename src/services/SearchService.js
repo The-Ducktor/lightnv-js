@@ -1,5 +1,6 @@
 import fuzzysort from "fuzzysort";
 import MiniSearch from "minisearch";
+import { Trie } from "./Trie";
 
 export class SearchService {
   constructor() {
@@ -7,6 +8,7 @@ export class SearchService {
     this.searchIndex = new Map();
     this.miniSearch = null;
     this.fuzzyPrepared = null;
+    this.trie = new Trie();
   }
 
   initialize(items) {
@@ -27,6 +29,11 @@ export class SearchService {
         }
         this.searchIndex.get(word).add(index);
       });
+    });
+
+    // Initialize Trie
+    items.forEach((item, index) => {
+      this.trie.insert(item.title, index);
     });
 
     // Initialize MiniSearch
@@ -57,7 +64,10 @@ export class SearchService {
   }
 
   startsWithMatch(title, query) {
-    return title.toLowerCase().startsWith(query.toLowerCase());
+    const matchingIndices = this.trie.findPrefix(query);
+    return matchingIndices.has(
+      this.links.findIndex((item) => item.title === title)
+    );
   }
 
   search(query, limit = 5) {

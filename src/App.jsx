@@ -322,15 +322,22 @@ const LinkTable = () => {
                     )
                     : (
                       <div className="grid gap-4">
-                        {displayLinks.map(({ link, title }, index) => (
+                        {displayLinks.map(({ link, title, score }, index) => (
                           <div
                             key={index}
                             className="card bg-base-200 hover:bg-base-300 shadow-sm hover:shadow-md transition-all duration-200 ease-in-out"
                           >
                             <div className="card-body p-4 flex-row justify-between items-center">
-                              <h3 className="card-title text-base font-medium hover:text-primary transition-colors">
-                                {truncateTitle(title)}
-                              </h3>
+                              <div className="flex flex-col">
+                                <h3 className="card-title text-base font-medium hover:text-primary transition-colors">
+                                  {truncateTitle(title)}
+                                </h3>
+                                {score !== undefined && (
+                                  <span className="text-xs text-base-content/30">
+                                    Match: {Math.round(score)}
+                                  </span>
+                                )}
+                              </div>
                               <button
                                 onClick={() =>
                                   handleGetButtonClick(link, title)}
